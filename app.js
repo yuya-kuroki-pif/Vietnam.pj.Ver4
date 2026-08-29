@@ -344,8 +344,12 @@ const I18N = {
     catBev: "Đồ uống",
     catSpice: "Gia vị",
     catSupplies: "Vật tư",
-    catFood: "Đồ ăn",
+    catFood: "Thực phẩm",
     catDrink: "Đồ uống",
+    catConsumables: "Vật tư tiêu hao",
+    catServiceFee: "Phí dịch vụ",
+    catStaffMeal: "Đồ ăn nhân viên",
+    catEquipment: "Vật tư",
     catPurchaseFood: "Mua hàng (đồ ăn)",
     catPurchaseDrink: "Mua hàng (đồ uống)",
     catReserveDeposit: "Nạp quỹ chuẩn bị",
@@ -356,6 +360,32 @@ const I18N = {
     catEntertainment: "Tiếp khách",
     catBankFee: "Phí ngân hàng",
     catOther: "Khác",
+    unitPriceInclTax: "Đơn giá (có thuế)",
+    paymentStatus: "Trạng thái thanh toán",
+    payStatusPaid: "Đã thanh toán",
+    payStatusUnpaid: "Chưa thanh toán",
+    exportCsv: "⬇ CSV",
+    exportCsvAll: "⬇ CSV (Mua hàng + Quỹ)",
+    msgCsvExported: "Đã tải xuống {n} dòng.",
+    msgCsvSkippedIn: "({n} giao dịch thu không được xuất)",
+    msgCsvEmpty: "Không có dữ liệu để xuất.",
+    filterVendorAll: "-- Tất cả nhà cung cấp --",
+    filterMethodAll: "Tất cả",
+    filterTypeAll: "Tất cả",
+    methodManual: "Thủ công",
+    methodAuto: "Tự động",
+    colPurchaseDate: "Ngày mua",
+    colUnitPriceExcl: "Đơn giá (chưa thuế)",
+    colOrderQty: "Số lượng",
+    colAmountExcl: "Thành tiền (chưa thuế)",
+    colUnitPriceIncl: "Đơn giá (có thuế)",
+    colAmountIncl: "Thành tiền (có thuế)",
+    colProductType: "Loại hàng",
+    colMethod: "Cách đăng ký",
+    colDelete: "Xóa",
+    pagerSummary: "{from}–{to} / {total} dòng",
+    pagerPerPage: "{n} dòng/trang",
+    pagerAll: "Tất cả",
     txEmpty: "Chưa có giao dịch nào.",
     msgTxRegistered: "Đã đăng ký giao dịch.",
     msgTxDeleted: "Đã xóa giao dịch.",
@@ -664,6 +694,10 @@ const I18N = {
     catSupplies: "備品",
     catFood: "フード",
     catDrink: "ドリンク",
+    catConsumables: "消耗品",
+    catServiceFee: "サービス料",
+    catStaffMeal: "まかない",
+    catEquipment: "備品",
     catPurchaseFood: "仕入れ (フード)",
     catPurchaseDrink: "仕入れ (ドリンク)",
     catReserveDeposit: "準備金入金",
@@ -674,6 +708,32 @@ const I18N = {
     catEntertainment: "接待交際費",
     catBankFee: "支払手数料",
     catOther: "その他",
+    unitPriceInclTax: "単価（税込）",
+    paymentStatus: "支払状況",
+    payStatusPaid: "支払済",
+    payStatusUnpaid: "未払",
+    exportCsv: "⬇ CSV",
+    exportCsvAll: "⬇ CSV (仕入れ+小口)",
+    msgCsvExported: "{n} 件をダウンロードしました。",
+    msgCsvSkippedIn: "(小口の入金 {n} 件は対象外)",
+    msgCsvEmpty: "出力するデータがありません。",
+    filterVendorAll: "-- 取引先で絞り込み --",
+    filterMethodAll: "全て",
+    filterTypeAll: "全て",
+    methodManual: "手動",
+    methodAuto: "自動",
+    colPurchaseDate: "仕入日",
+    colUnitPriceExcl: "単価（税別）",
+    colOrderQty: "注文数量",
+    colAmountExcl: "仕入金額（税別）",
+    colUnitPriceIncl: "単価（税込）",
+    colAmountIncl: "金額（税込）",
+    colProductType: "商品タイプ",
+    colMethod: "登録方法",
+    colDelete: "削除",
+    pagerSummary: "{from}–{to} / {total} 件",
+    pagerPerPage: "{n} 件/ページ",
+    pagerAll: "全て",
     txEmpty: "取引データがありません。",
     msgTxRegistered: "取引を登録しました。",
     msgTxDeleted: "取引を削除しました。",
@@ -730,6 +790,17 @@ function applyLanguage() {
   updateArmedHint();
   if (currentTab === "shiftManage") loadManageShifts();
   if (currentTab === "shiftRegister") renderCalendar();
+  // 取引一覧はヘッダーも含めてJSで組み立てているので、描画し直さないと
+  // 前の言語のままになる。表が既に出ているときだけ再描画する
+  // (= データ取得済み。起動直後の初回呼び出しでは何もしない)。
+  if (document.querySelector("#purchaseList .tx-table")) {
+    refreshVendorOptions();
+    renderPurchaseList();
+  }
+  if (document.querySelector("#pettyList .tx-table")) {
+    refreshVendorOptions();
+    renderPettyList();
+  }
 }
 
 document.querySelectorAll(".lang-btn").forEach((btn) => {
@@ -1907,13 +1978,21 @@ function fmtDate(s) {
 }
 
 let txVendors = [];
+// 過去に登録された商品名 (仕入れ + 小口)。商品名入力のサジェストに使う。
+let txProducts = [];
 
 async function loadStores() {
-  const [s, v] = await Promise.all([api("listStores"), api("listVendors")]);
+  const [s, v, p] = await Promise.all([
+    api("listStores"),
+    api("listVendors"),
+    api("listProductNames"),
+  ]);
   if (s && s.success) txStores = s.stores || [];
   if (v && v.success) txVendors = v.vendors || [];
+  if (p && p.success) txProducts = p.products || [];
   refreshStoreOptions();
   refreshVendorOptions();
+  refreshProductOptions();
 }
 
 function refreshStoreOptions() {
@@ -1949,11 +2028,44 @@ function refreshStoreOptions() {
 
 function refreshVendorOptions() {
   const dl = document.getElementById("vendorOptions");
+  if (dl) {
+    dl.innerHTML = "";
+    txVendors.forEach((v) => {
+      const o = document.createElement("option");
+      o.value = v;
+      dl.appendChild(o);
+    });
+  }
+  // 一覧の「取引先で絞り込み」。空文字 = 全件。
+  ["purchaseVendorFilter", "pettyVendorFilter"].forEach((id) => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = "";
+    const ph = document.createElement("option");
+    ph.value = "";
+    ph.textContent = t("filterVendorAll");
+    sel.appendChild(ph);
+    txVendors.forEach((v) => {
+      const o = document.createElement("option");
+      o.value = v;
+      o.textContent = v;
+      sel.appendChild(o);
+    });
+    // 選択中の取引先がマスタから消えていない限り、選択を維持する
+    sel.value = cur && txVendors.indexOf(cur) >= 0 ? cur : "";
+  });
+}
+
+// 仕入れ・小口の商品名入力に紐づく <datalist>。バックエンドが「直近登録順」で
+// 返すので、その順序のまま option を並べる (よく使う商品が上に出る)。
+function refreshProductOptions() {
+  const dl = document.getElementById("productOptions");
   if (!dl) return;
   dl.innerHTML = "";
-  txVendors.forEach((v) => {
+  txProducts.forEach((name) => {
     const o = document.createElement("option");
-    o.value = v;
+    o.value = name;
     dl.appendChild(o);
   });
 }
@@ -1995,11 +2107,195 @@ document.querySelectorAll("[data-tx-tab]").forEach((btn) => {
 });
 
 // ============================================================
+// 取引一覧テーブル: 共通ヘルパー
+// 仕入れ・小口とも列数が多いため、カードではなく横スクロールする表で出す。
+// ============================================================
+const TX_PAGE_SIZES = [20, 50, 100, 0]; // 0 = 全件
+
+// セル1個分。value が Node ならそのまま入れ、文字列なら textContent に入れる
+// (=常にエスケープされる。innerHTML は使わない)。
+function txCell(value, opts = {}) {
+  const td = document.createElement("td");
+  if (opts.className) td.className = opts.className;
+  if (value instanceof Node) td.appendChild(value);
+  else {
+    const s = value === null || value === undefined ? "" : String(value);
+    td.textContent = s;
+    // 省略表示される列は、全文をツールチップで読めるようにしておく
+    if (opts.title && s) td.title = s;
+  }
+  return td;
+}
+
+function txTag(text, className) {
+  const span = document.createElement("span");
+  span.className = "tx-card-tag" + (className ? " " + className : "");
+  span.textContent = text;
+  return span;
+}
+
+// headers: [{ label, className }] / rows: 各行の <td> 配列
+function buildTxTable(headers, rows) {
+  const wrap = document.createElement("div");
+  wrap.className = "tx-table-wrap";
+  const table = document.createElement("table");
+  table.className = "tx-table";
+
+  const thead = document.createElement("thead");
+  const htr = document.createElement("tr");
+  headers.forEach((h) => {
+    const th = document.createElement("th");
+    th.textContent = h.label;
+    if (h.className) th.className = h.className;
+    htr.appendChild(th);
+  });
+  thead.appendChild(htr);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  rows.forEach((cells) => {
+    const tr = document.createElement("tr");
+    cells.forEach((td) => tr.appendChild(td));
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  return wrap;
+}
+
+// 表示するページ番号を組み立てる。先頭・末尾・現在ページ周辺だけを出し、
+// 飛ぶところは "…" で省略する (例: 1 2 3 4 5 … 12)。
+function txPageNumbers(current, totalPages) {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+  const out = [1];
+  let from = Math.max(2, current - 1);
+  let to = Math.min(totalPages - 1, current + 1);
+  // 先頭/末尾に寄っているときは反対側を広げて、常に同じ個数を見せる
+  if (current <= 3) to = 4;
+  if (current >= totalPages - 2) from = totalPages - 3;
+  if (from > 2) out.push("…");
+  for (let i = from; i <= to; i++) out.push(i);
+  if (to < totalPages - 1) out.push("…");
+  out.push(totalPages);
+  return out;
+}
+
+// state: { page, pageSize } を直接書き換え、onChange で再描画させる。
+function buildTxPager(total, state, onChange) {
+  const pageSize = state.pageSize || total || 1;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(state.page, totalPages);
+  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to = Math.min(total, page * pageSize);
+
+  const bar = document.createElement("div");
+  bar.className = "tx-pager";
+
+  const info = document.createElement("div");
+  info.className = "tx-pager-info";
+  info.textContent = t("pagerSummary")
+    .replace("{from}", from).replace("{to}", to).replace("{total}", total);
+  bar.appendChild(info);
+
+  const pages = document.createElement("div");
+  pages.className = "tx-pager-pages";
+
+  const navBtn = (label, targetPage, disabled) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "tx-pager-btn";
+    b.textContent = label;
+    b.disabled = disabled;
+    b.addEventListener("click", () => { state.page = targetPage; onChange(); });
+    return b;
+  };
+  pages.appendChild(navBtn("‹", page - 1, page <= 1));
+  txPageNumbers(page, totalPages).forEach((p) => {
+    if (p === "…") {
+      const gap = document.createElement("span");
+      gap.className = "tx-pager-gap";
+      gap.textContent = "…";
+      pages.appendChild(gap);
+      return;
+    }
+    const b = navBtn(String(p), p, false);
+    if (p === page) b.classList.add("active");
+    pages.appendChild(b);
+  });
+  pages.appendChild(navBtn("›", page + 1, page >= totalPages));
+
+  const sizeSel = document.createElement("select");
+  sizeSel.className = "tx-page-size";
+  TX_PAGE_SIZES.forEach((n) => {
+    const o = document.createElement("option");
+    o.value = String(n);
+    o.textContent = n === 0 ? t("pagerAll") : t("pagerPerPage").replace("{n}", n);
+    sizeSel.appendChild(o);
+  });
+  sizeSel.value = String(state.pageSize);
+  sizeSel.addEventListener("change", () => {
+    state.pageSize = parseInt(sizeSel.value, 10);
+    state.page = 1;
+    onChange();
+  });
+  pages.appendChild(sizeSel);
+
+  bar.appendChild(pages);
+  return bar;
+}
+
+// state.page を範囲内に収めたうえで、そのページ分だけ切り出す。
+function txPageSlice(rows, state) {
+  if (!state.pageSize) { state.page = 1; return rows; }
+  const totalPages = Math.max(1, Math.ceil(rows.length / state.pageSize));
+  if (state.page > totalPages) state.page = totalPages;
+  if (state.page < 1) state.page = 1;
+  const start = (state.page - 1) * state.pageSize;
+  return rows.slice(start, start + state.pageSize);
+}
+
+function txEmptyBox() {
+  const div = document.createElement("div");
+  div.className = "tx-empty";
+  div.textContent = t("txEmpty");
+  return div;
+}
+
+// 科目キー → 表示ラベル ("cat" + Pascal case で i18n を引く)
+function txCategoryLabel(key) {
+  const k = String(key || "");
+  if (!k) return "";
+  const i18nKey = "cat" + k.charAt(0).toUpperCase() + k.slice(1);
+  const label = t(i18nKey);
+  return label !== i18nKey ? label : k;
+}
+
+function txPaymentMethodLabel(key) {
+  const k = String(key || "");
+  if (!k) return "";
+  // snake_case → PascalCase: "transfer_eom" → "TransferEom"
+  const camel = k.split("_").map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join("");
+  const label = t("pay" + camel);
+  return label !== "pay" + camel ? label : k;
+}
+
+// ============================================================
 // Purchase tab
 // ============================================================
 document.getElementById("purchaseStoreFilter").addEventListener("change", loadPurchases);
 document.getElementById("purchaseDateFrom").addEventListener("change", loadPurchases);
 document.getElementById("purchaseDateTo").addEventListener("change", loadPurchases);
+// 取引先・登録方法は取得済みデータへの絞り込みなので、再取得せず再描画のみ。
+document.getElementById("purchaseVendorFilter").addEventListener("change", () => {
+  purchaseTableState.page = 1;
+  renderPurchaseList();
+});
+document.getElementById("purchaseMethodFilter").addEventListener("change", () => {
+  purchaseTableState.page = 1;
+  renderPurchaseList();
+});
 document.getElementById("newPurchaseBtn").addEventListener("click", openPurchaseModal);
 document.getElementById("purchaseClose").addEventListener("click", closePurchaseModal);
 document.getElementById("purchaseCancel").addEventListener("click", closePurchaseModal);
@@ -2164,6 +2460,7 @@ document.getElementById("purchaseForm").addEventListener("submit", async (e) => 
     store: $("pStore").trim(),
     vendor: $("pVendor").trim(),
     paymentMethod: $("pPaymentMethod"),
+    paymentStatus: $("pPaymentStatus"),
     items: validItems,
   };
   const r = await api("registerPurchaseBatch", payload);
@@ -2177,82 +2474,67 @@ document.getElementById("purchaseForm").addEventListener("submit", async (e) => 
   }
 });
 
+// 取得済みの全件をここに保持し、取引先/登録方法の絞り込みとページングは
+// クライアント側で行う (フィルタのたびにAPIを叩かないため)。
+let purchaseRows = [];
+const purchaseTableState = { page: 1, pageSize: 100 };
+
 async function loadPurchases() {
   const store = document.getElementById("purchaseStoreFilter").value;
   const dateFrom = document.getElementById("purchaseDateFrom").value;
   const dateTo = document.getElementById("purchaseDateTo").value;
   const r = await api("listPurchases", { store, dateFrom, dateTo });
-  renderPurchaseList((r && r.purchases) || []);
+  purchaseRows = (r && r.purchases) || [];
+  purchaseTableState.page = 1;
+  renderPurchaseList();
 }
 
-function renderPurchaseList(list) {
+function filteredPurchases() {
+  const vendor = document.getElementById("purchaseVendorFilter").value;
+  const method = document.getElementById("purchaseMethodFilter").value;
+  return purchaseRows.filter((p) => {
+    if (vendor && String(p.vendor || "") !== vendor) return false;
+    if (method && String(p.method || "manual") !== method) return false;
+    return true;
+  });
+}
+
+function renderPurchaseList() {
   const root = document.getElementById("purchaseList");
   root.innerHTML = "";
-  if (!list.length) {
-    const div = document.createElement("div");
-    div.className = "tx-empty";
-    div.textContent = t("txEmpty");
-    root.appendChild(div);
+
+  const all = filteredPurchases();
+  if (!all.length) {
+    root.appendChild(txEmptyBox());
     return;
   }
-  list.forEach((p) => {
-    const incl = p.unitPrice * p.quantity * (1 + p.taxRate / 100);
-    const card = document.createElement("div");
-    card.className = "tx-card";
 
-    const row1 = document.createElement("div");
-    row1.className = "tx-card-row1";
-    const date = document.createElement("span");
-    date.className = "tx-card-date";
-    date.textContent = `${fmtDate(p.date)}  ${p.store || ""}`;
-    const amount = document.createElement("span");
-    amount.className = "tx-card-amount";
-    amount.textContent = fmtVnd(incl);
-    row1.appendChild(date);
-    row1.appendChild(amount);
+  const headers = [
+    { label: t("colPurchaseDate"), className: "tx-col-sticky" },
+    { label: t("vendor") },
+    { label: t("productName") },
+    { label: t("specification") },
+    { label: t("colProductType") },
+    { label: t("colUnitPriceExcl"), className: "tx-num" },
+    { label: t("colOrderQty"), className: "tx-num" },
+    { label: t("taxRate"), className: "tx-num" },
+    { label: t("colAmountExcl"), className: "tx-num" },
+    { label: t("paymentMethod") },
+    { label: t("paymentStatus") },
+    { label: t("colMethod") },
+    { label: t("note") },
+    { label: t("colDelete") },
+  ];
 
-    const row2 = document.createElement("div");
-    row2.className = "tx-card-row2";
-    row2.textContent = p.productName;
-
-    const row3 = document.createElement("div");
-    row3.className = "tx-card-row3";
-    if (p.vendor) {
-      const v = document.createElement("span");
-      v.textContent = p.vendor;
-      row3.appendChild(v);
-    }
-    if (p.category) {
-      const c = document.createElement("span");
-      c.className = "tx-card-tag";
-      const catKey = "cat" + p.category.charAt(0).toUpperCase() + p.category.slice(1);
-      const cat = t(catKey);
-      c.textContent = cat !== catKey ? cat : p.category;
-      row3.appendChild(c);
-    }
-    if (p.paymentMethod) {
-      const pm = document.createElement("span");
-      pm.className = "tx-card-tag";
-      // snake_case → camelCase: "transfer_eom" → "TransferEom"
-      const camel = p.paymentMethod
-        .split("_")
-        .map((s, i) => i === 0
-          ? s.charAt(0).toUpperCase() + s.slice(1)
-          : s.charAt(0).toUpperCase() + s.slice(1))
-        .join("");
-      const payKey = "pay" + camel;
-      const payLabel = t(payKey);
-      pm.textContent = payLabel !== payKey ? payLabel : p.paymentMethod;
-      row3.appendChild(pm);
-    }
-    const qty = document.createElement("span");
-    qty.textContent = `${fmtVnd(p.unitPrice)} × ${p.quantity}  (税${p.taxRate}%)`;
-    row3.appendChild(qty);
+  const rows = txPageSlice(all, purchaseTableState).map((p) => {
+    // 一覧の金額は写真に合わせて税別 (単価 × 数量)。税込はCSV・ダッシュボード側。
+    const amountExcl = (Number(p.unitPrice) || 0) * (Number(p.quantity) || 0);
 
     const del = document.createElement("button");
     del.type = "button";
-    del.className = "tx-card-delete";
+    del.className = "tx-row-delete";
     del.textContent = "×";
+    del.title = t("colDelete");
     del.addEventListener("click", async () => {
       if (!confirm(t("txDeleteConfirm"))) return;
       const r = await api("deletePurchase", { id: p.id });
@@ -2264,12 +2546,37 @@ function renderPurchaseList(list) {
       }
     });
 
-    card.appendChild(row1);
-    card.appendChild(row2);
-    card.appendChild(row3);
-    card.appendChild(del);
-    root.appendChild(card);
+    const method = String(p.method || "manual");
+    const methodTag = txTag(
+      t(method === "auto" ? "methodAuto" : "methodManual"),
+      method === "auto" ? "tx-card-tag-paid" : ""
+    );
+
+    return [
+      txCell(fmtDate(p.date), { className: "tx-col-sticky" }),
+      txCell(p.vendor, { className: "tx-col-wide", title: true }),
+      txCell(p.productName, { className: "tx-col-wide", title: true }),
+      txCell(p.specification, { title: true }),
+      txCell(txCategoryLabel(p.category)),
+      txCell(fmtVnd(p.unitPrice), { className: "tx-num" }),
+      txCell(p.quantity, { className: "tx-num" }),
+      txCell(`${p.taxRate || 0}%`, { className: "tx-num" }),
+      txCell(fmtVnd(amountExcl), { className: "tx-num" }),
+      txCell(txPaymentMethodLabel(p.paymentMethod)),
+      txCell(
+        p.paymentStatus
+          ? txTag(t(p.paymentStatus === "paid" ? "payStatusPaid" : "payStatusUnpaid"),
+                  "tx-card-tag-" + p.paymentStatus)
+          : ""
+      ),
+      txCell(methodTag),
+      txCell(p.note, { className: "tx-col-wide", title: true }),
+      txCell(del),
+    ];
   });
+
+  root.appendChild(buildTxTable(headers, rows));
+  root.appendChild(buildTxPager(all.length, purchaseTableState, renderPurchaseList));
 }
 
 // ============================================================
@@ -2277,6 +2584,15 @@ function renderPurchaseList(list) {
 // ============================================================
 document.getElementById("pettyStoreFilter").addEventListener("change", loadPettyCash);
 document.getElementById("pettyMonth").addEventListener("change", loadPettyCash);
+// 取引先・入出金区分は取得済みデータへの絞り込みなので、再取得せず再描画のみ。
+document.getElementById("pettyVendorFilter").addEventListener("change", () => {
+  pettyTableState.page = 1;
+  renderPettyList();
+});
+document.getElementById("pettyTypeFilter").addEventListener("change", () => {
+  pettyTableState.page = 1;
+  renderPettyList();
+});
 document.getElementById("newPettyBtn").addEventListener("click", openPettyModal);
 document.getElementById("pettyClose").addEventListener("click", closePettyModal);
 document.getElementById("pettyCancel").addEventListener("click", closePettyModal);
@@ -2330,9 +2646,12 @@ function addPettyItem() {
   const clone = tpl.content.firstElementChild.cloneNode(true);
   applyLanguageTo(clone);
   clone.querySelector(".batch-item-remove").addEventListener("click", () => removePettyItem(clone));
-  ["amount"].forEach((f) => {
+  ["unitPrice", "quantity"].forEach((f) => {
     const el = clone.querySelector(`[data-field='${f}']`);
-    if (el) el.addEventListener("input", recalcPettyAmount);
+    if (el) {
+      el.addEventListener("input", recalcPettyAmount);
+      el.addEventListener("change", recalcPettyAmount);
+    }
   });
   document.getElementById("cItemsList").appendChild(clone);
   reindexPettyItems();
@@ -2361,23 +2680,37 @@ function reindexPettyItems() {
   if (btn) btn.textContent = `${t("registerBtn")} (${items.length})`;
 }
 
+// 小口の金額は「単価(税込) × 数量」。行ごとの小計と全体合計を同時に更新する。
 function recalcPettyAmount() {
   let total = 0;
   document.querySelectorAll("#cItemsList .batch-item").forEach((row) => {
-    total += parseFloat(row.querySelector("[data-field='amount']").value) || 0;
+    const u = parseFloat(row.querySelector("[data-field='unitPrice']").value) || 0;
+    const q = parseFloat(row.querySelector("[data-field='quantity']").value) || 0;
+    const sub = u * q;
+    total += sub;
+    const cell = row.querySelector(".batch-item-amount-value");
+    if (cell) cell.textContent = fmtVnd(sub);
   });
   document.getElementById("cTotalAmount").textContent = fmtVnd(total);
 }
 
 function collectPettyItems() {
-  return Array.from(document.querySelectorAll("#cItemsList .batch-item")).map((row) => ({
-    category:    row.querySelector("[data-field='category']").value,
-    subCategory: row.querySelector("[data-field='subCategory']").value.trim(),
-    productName: row.querySelector("[data-field='productName']").value.trim(),
-    amount:      row.querySelector("[data-field='amount']").value || 0,
-    taxRate:     row.querySelector("[data-field='taxRate']").value,
-    note:        row.querySelector("[data-field='note']").value.trim(),
-  }));
+  return Array.from(document.querySelectorAll("#cItemsList .batch-item")).map((row) => {
+    const unitPrice = parseFloat(row.querySelector("[data-field='unitPrice']").value) || 0;
+    const quantity = parseFloat(row.querySelector("[data-field='quantity']").value) || 0;
+    return {
+      category:    row.querySelector("[data-field='category']").value,
+      subCategory: row.querySelector("[data-field='subCategory']").value.trim(),
+      productName: row.querySelector("[data-field='productName']").value.trim(),
+      unitPrice,
+      quantity,
+      // 金額はバックエンドでも単価×数量で再計算されるが、旧クライアント互換の
+      // フォールバックと画面表示の一貫性のためここでも送っておく。
+      amount:      unitPrice * quantity,
+      taxRate:     row.querySelector("[data-field='taxRate']").value,
+      note:        row.querySelector("[data-field='note']").value.trim(),
+    };
+  });
 }
 
 document.getElementById("pettyForm").addEventListener("submit", async (e) => {
@@ -2413,6 +2746,10 @@ document.getElementById("pettyForm").addEventListener("submit", async (e) => {
   }
 });
 
+// 取得済みの全件を保持し、取引先/区分の絞り込みとページングはクライアント側で行う。
+let pettyRows = [];
+const pettyTableState = { page: 1, pageSize: 100 };
+
 async function loadPettyCash() {
   const store = document.getElementById("pettyStoreFilter").value;
   const ymVal = document.getElementById("pettyMonth").value; // "yyyy-MM"
@@ -2422,78 +2759,65 @@ async function loadPettyCash() {
     month = parseInt(ymVal.substring(5, 7), 10);
   }
   const r = await api("listPettyCash", { store, year, month });
-  renderPettyList((r && r.items) || []);
+  pettyRows = (r && r.items) || [];
+  pettyTableState.page = 1;
+  renderPettyList();
 }
 
-function renderPettyList(items) {
+function filteredPetty() {
+  const vendor = document.getElementById("pettyVendorFilter").value;
+  const type = document.getElementById("pettyTypeFilter").value;
+  return pettyRows.filter((it) => {
+    if (vendor && String(it.vendor || "") !== vendor) return false;
+    if (type && String(it.type || "out") !== type) return false;
+    return true;
+  });
+}
+
+function renderPettyList() {
   const root = document.getElementById("pettyList");
   root.innerHTML = "";
 
+  const all = filteredPetty();
+
+  // 合計は絞り込み後の件数に対して出す (表と数字が食い違わないように)。
   let totalIn = 0, totalOut = 0;
-  items.forEach((it) => {
+  all.forEach((it) => {
     if (it.type === "in") totalIn += it.amount;
     else totalOut += it.amount;
   });
   document.getElementById("pettyTotalIn").textContent = fmtVnd(totalIn);
   document.getElementById("pettyTotalOut").textContent = fmtVnd(totalOut);
 
-  if (!items.length) {
-    const div = document.createElement("div");
-    div.className = "tx-empty";
-    div.textContent = t("txEmpty");
-    root.appendChild(div);
+  if (!all.length) {
+    root.appendChild(txEmptyBox());
     return;
   }
 
-  items.forEach((it) => {
-    const card = document.createElement("div");
-    card.className = "tx-card";
+  const headers = [
+    { label: t("date"), className: "tx-col-sticky" },
+    { label: t("vendor") },
+    { label: t("category") },
+    { label: t("subCategory") },
+    { label: t("pettyProductName") },
+    { label: t("txType") },
+    { label: t("colUnitPriceIncl"), className: "tx-num" },
+    { label: t("colOrderQty"), className: "tx-num" },
+    { label: t("taxRate"), className: "tx-num" },
+    { label: t("colAmountIncl"), className: "tx-num" },
+    { label: t("taxCode") },
+    { label: t("note") },
+    { label: t("colDelete") },
+  ];
 
-    const row1 = document.createElement("div");
-    row1.className = "tx-card-row1";
-    const date = document.createElement("span");
-    date.className = "tx-card-date";
-    date.textContent = `${fmtDate(it.date)}  ${it.store || ""}`;
-    const amount = document.createElement("span");
-    amount.className = "tx-card-amount " + (it.type === "in" ? "amount-in" : "amount-out");
-    amount.textContent = (it.type === "in" ? "+" : "-") + fmtVnd(it.amount);
-    row1.appendChild(date);
-    row1.appendChild(amount);
-
-    const row2 = document.createElement("div");
-    row2.className = "tx-card-row2";
-    const catKey = "cat" + (it.category || "").charAt(0).toUpperCase() + (it.category || "").slice(1);
-    const catLabel = t(catKey) !== catKey ? t(catKey) : (it.category || "");
-    row2.textContent = catLabel
-      + (it.subCategory ? ` / ${it.subCategory}` : "")
-      + (it.productName ? ` / ${it.productName}` : "");
-
-    const row3 = document.createElement("div");
-    row3.className = "tx-card-row3";
-    const tag = document.createElement("span");
-    tag.className = "tx-card-tag " + (it.type === "in" ? "type-in" : "type-out");
-    tag.textContent = t(it.type === "in" ? "typeIn" : "typeOut");
-    row3.appendChild(tag);
-    if (it.vendor) {
-      const v = document.createElement("span");
-      v.textContent = it.vendor;
-      row3.appendChild(v);
-    }
-    if (it.taxCode) {
-      const tc = document.createElement("span");
-      tc.textContent = "MST: " + it.taxCode;
-      row3.appendChild(tc);
-    }
-    if (it.note) {
-      const n = document.createElement("span");
-      n.textContent = it.note;
-      row3.appendChild(n);
-    }
+  const rows = txPageSlice(all, pettyTableState).map((it) => {
+    const isIn = it.type === "in";
 
     const del = document.createElement("button");
     del.type = "button";
-    del.className = "tx-card-delete";
+    del.className = "tx-row-delete";
     del.textContent = "×";
+    del.title = t("colDelete");
     del.addEventListener("click", async () => {
       if (!confirm(t("txDeleteConfirm"))) return;
       const r = await api("deletePettyCash", { id: it.id });
@@ -2505,13 +2829,245 @@ function renderPettyList(items) {
       }
     });
 
-    card.appendChild(row1);
-    card.appendChild(row2);
-    card.appendChild(row3);
-    card.appendChild(del);
-    root.appendChild(card);
+    return [
+      txCell(fmtDate(it.date), { className: "tx-col-sticky" }),
+      txCell(it.vendor, { className: "tx-col-wide", title: true }),
+      txCell(txCategoryLabel(it.category)),
+      txCell(it.subCategory, { title: true }),
+      txCell(it.productName, { className: "tx-col-wide", title: true }),
+      txCell(txTag(t(isIn ? "typeIn" : "typeOut"), isIn ? "type-in" : "type-out")),
+      txCell(fmtVnd(it.unitPrice), { className: "tx-num" }),
+      txCell(it.quantity, { className: "tx-num" }),
+      txCell(`${it.taxRate || 0}%`, { className: "tx-num" }),
+      txCell((isIn ? "+" : "-") + fmtVnd(it.amount),
+             { className: "tx-num " + (isIn ? "tx-amount-in" : "tx-amount-out") }),
+      txCell(it.taxCode, { title: true }),
+      txCell(it.note, { className: "tx-col-wide", title: true }),
+      txCell(del),
+    ];
   });
+
+  root.appendChild(buildTxTable(headers, rows));
+  root.appendChild(buildTxPager(all.length, pettyTableState, renderPettyList));
 }
+
+// ============================================================
+// CSV export (仕入れ / 小口)
+// ------------------------------------------------------------
+// 出力形式は運用中の「Theo dõi hoá đơn」シートに合わせた 10 列。
+// 画面の表示言語に関わらず、中身は常にベトナム語で出力する
+// (既存シートに貼り付けて使うため)。
+// ============================================================
+const CSV_HEADERS = [
+  "No.", "Ngày", "Nhà cung cấp", "Danh Mục", "Nội dung đơn hàng",
+  "Số tiền TT", "HTTT", "NOTE", "Trạng thái thanh toán", "VAT",
+];
+
+// 仕入れの科目 → Danh Mục
+const CSV_PURCHASE_CATEGORY = {
+  food: "Thực phẩm",
+  drink: "Đồ uống",
+  consumables: "Vật tư tiêu hao",
+  serviceFee: "Phí dịch vụ",
+  staffMeal: "Đồ ăn nhân viên",
+  equipment: "Vật tư",
+  other: "Khác",
+};
+
+// 小口の科目 → Danh Mục
+const CSV_PETTY_CATEGORY = {
+  purchaseFood: "Thực phẩm",
+  purchaseDrink: "Đồ uống",
+  reserveDeposit: "Nạp quỹ chuẩn bị",
+  utilities: "Điện nước",
+  communication: "Viễn thông",
+  supplies: "Văn phòng phẩm",
+  travel: "Đi lại",
+  entertainment: "Tiếp khách",
+  bankFee: "Phí ngân hàng",
+  other: "Khác",
+};
+
+// 支払方法 → HTTT。月末振込は買掛 (Công nợ) として出力する。
+const CSV_PAYMENT_METHOD = {
+  cash: "Tiền mặt",
+  transfer: "Chuyển khoản",
+  transfer_eom: "Công nợ",
+  card: "Thẻ",
+  momo: "Momo",
+  zalopay: "ZaloPay",
+  vnpay: "VNPay",
+  other: "Khác",
+};
+
+const CSV_PAYMENT_STATUS = {
+  paid: "Đã thanh toán",
+  unpaid: "Chưa thanh toán",
+};
+
+// "yyyy-MM-dd" → "dd/MM/yyyy"
+function csvDate(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || ""));
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : String(s || "");
+}
+
+function csvVat(taxRate) {
+  return Number(taxRate) > 0 ? "Có VAT" : "Không VAT";
+}
+
+// RFC4180 準拠のエスケープ。区切り/引用符/改行を含む値のみ引用符で囲む。
+function csvEscape(v) {
+  const s = v === null || v === undefined ? "" : String(v);
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+// 仕入れ1件 → CSV 1行。金額は税込 (単価 × 数量 × (1+税率))。
+function purchaseToCsvRow(p) {
+  const incl = Math.round(
+    (Number(p.unitPrice) || 0) * (Number(p.quantity) || 0) * (1 + (Number(p.taxRate) || 0) / 100)
+  );
+  const content = p.specification
+    ? `${p.productName} (${p.specification})`
+    : p.productName || "";
+  return {
+    date: p.date,
+    cells: [
+      csvDate(p.date),
+      p.vendor || "",
+      CSV_PURCHASE_CATEGORY[p.category] || p.category || "",
+      content,
+      incl,
+      CSV_PAYMENT_METHOD[p.paymentMethod] || p.paymentMethod || "",
+      p.note || "",
+      CSV_PAYMENT_STATUS[p.paymentStatus] || "",
+      csvVat(p.taxRate),
+    ],
+  };
+}
+
+// 小口1件 → CSV 1行。小口現金はその場払いなので HTTT は常に現金・支払済。
+function pettyToCsvRow(it) {
+  const content = it.productName || it.subCategory || "";
+  return {
+    date: it.date,
+    cells: [
+      csvDate(it.date),
+      it.vendor || "",
+      CSV_PETTY_CATEGORY[it.category] || it.category || "",
+      content,
+      Math.round(Number(it.amount) || 0),
+      "Tiền mặt",
+      it.note || "",
+      "Đã thanh toán",
+      csvVat(it.taxRate),
+    ],
+  };
+}
+
+// UTF-8 BOM + CRLF。BOM が無いと Excel がベトナム語を文字化けさせる。
+function buildCsv(rows) {
+  const lines = [CSV_HEADERS.join(",")];
+  rows.forEach((r, i) => {
+    lines.push([i + 1, ...r.cells].map(csvEscape).join(","));
+  });
+  return "\uFEFF" + lines.join("\r\n") + "\r\n";
+}
+
+function downloadCsv(filename, text) {
+  const blob = new Blob([text], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ファイル名に使えるようにストア名を ASCII 化する (ベトナム語の声調記号を除去)。
+function csvSlug(s) {
+  return String(s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d").replace(/Đ/g, "D")
+    .replace(/[^A-Za-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "all";
+}
+
+// 出力対象の期間・店舗を、押されたボタンが属するタブのフィルタから決める。
+function csvRangeFrom(source) {
+  if (source === "petty") {
+    const store = document.getElementById("pettyStoreFilter").value;
+    const ym = document.getElementById("pettyMonth").value; // "yyyy-MM"
+    if (!/^\d{4}-\d{2}$/.test(ym)) return { store, dateFrom: "", dateTo: "" };
+    const y = parseInt(ym.slice(0, 4), 10);
+    const m = parseInt(ym.slice(5, 7), 10);
+    const last = new Date(y, m, 0).getDate();
+    return {
+      store,
+      dateFrom: `${ym}-01`,
+      dateTo: `${ym}-${String(last).padStart(2, "0")}`,
+    };
+  }
+  return {
+    store: document.getElementById("purchaseStoreFilter").value,
+    dateFrom: document.getElementById("purchaseDateFrom").value,
+    dateTo: document.getElementById("purchaseDateTo").value,
+  };
+}
+
+// include: "purchase" | "petty" | "all"
+// source : どちらのタブのフィルタを期間として使うか
+async function exportTransactionsCsv(include, source) {
+  const { store, dateFrom, dateTo } = csvRangeFrom(source);
+  const wantPurchase = include === "purchase" || include === "all";
+  const wantPetty = include === "petty" || include === "all";
+
+  const [pRes, cRes] = await Promise.all([
+    wantPurchase ? api("listPurchases", { store, dateFrom, dateTo }) : null,
+    wantPetty ? api("listPettyCash", { store, dateFrom, dateTo }) : null,
+  ]);
+
+  const rows = [];
+  if (pRes && pRes.success) {
+    (pRes.purchases || []).forEach((p) => rows.push(purchaseToCsvRow(p)));
+  }
+  // 小口の「入金」は支出の伝票ではないので出力対象外。件数はトーストで知らせる。
+  let skippedIn = 0;
+  if (cRes && cRes.success) {
+    (cRes.items || []).forEach((it) => {
+      if (it.type === "in") { skippedIn++; return; }
+      rows.push(pettyToCsvRow(it));
+    });
+  }
+
+  if (!rows.length) {
+    showToast(t("msgCsvEmpty"), "error");
+    return;
+  }
+
+  rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
+  const kind = include === "all" ? "giao-dich" : include === "petty" ? "quy-tien-mat" : "mua-hang";
+  downloadCsv(
+    `${kind}_${csvSlug(store)}_${dateFrom || "start"}_${dateTo || "end"}.csv`,
+    buildCsv(rows)
+  );
+
+  let msg = t("msgCsvExported").replace("{n}", rows.length);
+  if (skippedIn > 0) msg += " " + t("msgCsvSkippedIn").replace("{n}", skippedIn);
+  showToast(msg, "success");
+}
+
+document.getElementById("exportPurchaseCsvBtn")
+  .addEventListener("click", () => exportTransactionsCsv("purchase", "purchase"));
+document.getElementById("exportAllCsvFromPurchaseBtn")
+  .addEventListener("click", () => exportTransactionsCsv("all", "purchase"));
+document.getElementById("exportPettyCsvBtn")
+  .addEventListener("click", () => exportTransactionsCsv("petty", "petty"));
+document.getElementById("exportAllCsvFromPettyBtn")
+  .addEventListener("click", () => exportTransactionsCsv("all", "petty"));
 
 // ============================================================
 // Master data: stores + vendors

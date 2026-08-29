@@ -8,7 +8,13 @@
       "Bash(node --check __TRACKED_VAR__/Code.check.js)",
       "Bash(sed -n \"/^function normalizeDate/,/^}/p\" Code.gs)",
       "Bash(sed -n \"/^function getSpreadsheetTz/,/^}/p\" Code.gs)",
-      "Bash(node test_dashboard.js)"
+      "Bash(node test_dashboard.js)",
+      "Bash(node test_products.js)",
+      "Bash(node -e ' *)",
+      "Bash(node test_backend.js)",
+      "Bash(node test_csv.js)",
+      "Bash(node test_wiring.js)",
+      "Bash(node sample_csv.js)"
     ]
   }
 }

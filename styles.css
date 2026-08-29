@@ -1368,14 +1368,29 @@ form select:focus {
  * ============================================================ */
 .tx-toolbar {
   display: grid;
-  /* Default to a single stacked column. Each toolbar item gets the full
-     width of the card so native date / month inputs always fit. The
-     horizontal 3-column layout only kicks in on big screens (≥900px). */
+  /* Two stacked groups: filters, then actions. Each group lays itself out
+     internally, so adding a filter never squeezes the date inputs. */
   grid-template-columns: 1fr;
   gap: 8px;
   margin-bottom: 12px;
   min-width: 0;
   max-width: 100%;
+}
+
+.tx-filters {
+  display: grid;
+  /* Stacked on phones — each filter gets the full card width so native
+     date / month inputs always fit. Multi-column kicks in at ≥900px. */
+  grid-template-columns: 1fr;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tx-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  min-width: 0;
 }
 
 .tx-input {
@@ -1428,8 +1443,168 @@ form select:focus {
   width: 100%;
 }
 
+/* CSV出力ボタン。狭い画面では2つを横並びで1行に収める。
+   広い画面ではフィルタ行を圧迫しないよう、下の独立した行に回す
+   (→ 900px 以上のメディアクエリ側で grid-column: 1 / -1 を指定)。 */
+.tx-export-group {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  min-width: 0;
+}
+
+.tx-export-btn {
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
 .tx-tab-panel { display: none; }
 .tx-tab-panel.active { display: block; animation: fadeIn 0.2s ease; }
+
+/* ------------------------------------------------------------
+ * 取引一覧テーブル (仕入れ / 小口)
+ * 列数が多いので、狭い画面では横スクロールさせる。
+ * 日付列は左に固定して、横スクロール中も行を見失わないようにする。
+ * ------------------------------------------------------------ */
+.tx-table-wrap {
+  overflow-x: auto;
+  overflow-y: visible;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
+.tx-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.tx-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tx-table tbody td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: middle;
+}
+
+.tx-table tbody tr:last-child td { border-bottom: none; }
+.tx-table tbody tr:hover td { background: #f8fafc; }
+
+/* 日付列を左に固定 */
+.tx-table th.tx-col-sticky,
+.tx-table td.tx-col-sticky {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #fff;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 1px 0 0 var(--border);
+}
+.tx-table thead th.tx-col-sticky { z-index: 3; background: var(--bg); }
+.tx-table tbody tr:hover td.tx-col-sticky { background: #f8fafc; }
+
+/* 数値列は右寄せ + 等幅数字で桁を揃える */
+.tx-table .tx-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 商品名など長くなりうる列は省略表示 (ツールチップで全文を出す) */
+.tx-table .tx-col-wide {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tx-table .tx-amount-in { color: var(--success); font-weight: 700; }
+.tx-table .tx-amount-out { color: var(--danger); font-weight: 700; }
+
+.tx-row-delete {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--danger);
+  font-size: 14px;
+  line-height: 1;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.tx-row-delete:hover { background: #fee2e2; border-color: var(--danger); }
+
+/* ------------------------------------------------------------
+ * ページネーション
+ * ------------------------------------------------------------ */
+.tx-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.tx-pager-pages {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.tx-pager-btn {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.tx-pager-btn:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+.tx-pager-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  font-weight: 700;
+}
+.tx-pager-btn:disabled { opacity: 0.4; cursor: default; }
+.tx-pager-gap { padding: 0 2px; color: var(--muted); }
+
+.tx-page-size {
+  padding: 5px 8px;
+  font-size: 13px;
+  font-family: inherit;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text);
+}
 
 .tx-list {
   display: flex;
@@ -1499,6 +1674,8 @@ form select:focus {
 
 .tx-card-tag.type-in { background: #dcfce7; color: #166534; }
 .tx-card-tag.type-out { background: #fee2e2; color: #991b1b; }
+.tx-card-tag-paid { background: #dcfce7; color: #166534; }
+.tx-card-tag-unpaid { background: #fef3c7; color: #92400e; }
 
 .tx-card-delete {
   position: absolute;
@@ -1674,6 +1851,26 @@ form select:focus {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 8px;
+}
+
+/* 小口アイテム行の「単価 × 数量」から自動計算された小計 */
+.batch-item-amount {
+  margin: 8px 0 4px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #eff6ff;
+  font-size: 13px;
+  color: var(--text);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.batch-item-amount-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--primary);
 }
 
 .batch-item-index {
@@ -1920,11 +2117,20 @@ textarea:focus {
 }
 
 @media (min-width: 900px) {
-  .tx-toolbar {
-    /* Store filter gets more space than date range / month picker.
-       minmax(0, ...) lets the columns shrink below content size if needed
-       so long store names still fit / truncate inside the dropdown. */
-    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto;
+  .tx-filters {
+    /* タブレット〜小さめのPC: 2列 × 2段 (店舗/取引先 → 期間/登録方法)。
+       4列に詰め込むと店舗ドロップダウンが読めない幅まで潰れるため。
+       1列目の最小幅は「2026/08/01 + カレンダーアイコン」が2つ並んでも
+       欠けない値。ブラウザやロケールで表記が長くなる分の余裕も含む。 */
+    grid-template-columns: minmax(320px, 1fr) minmax(0, 1fr);
+    align-items: center;
+  }
+  /* 操作ボタンはフィルタとは別の行で右寄せ。
+     フィルタ側の列幅計算には一切関与しないので、ボタンのラベルが
+     長くなっても日付入力が潰れることはない。 */
+  .tx-actions {
+    grid-template-columns: auto auto;
+    justify-content: end;
     align-items: center;
   }
   .tx-date-range {
@@ -1932,6 +2138,17 @@ textarea:focus {
   }
   .tx-date-range .tx-arrow { display: inline; }
   .tx-new-btn { width: auto; padding-left: 16px; padding-right: 16px; }
+  .tx-export-group { grid-template-columns: auto auto; }
+  .tx-export-btn { width: auto; }
+}
+
+@media (min-width: 1200px) {
+  /* 広い画面ではフィルタ4つを1段に。minmax(0, ...) は列がコンテンツ幅より
+     縮めるようにするため (長い店舗名はドロップダウン内で省略表示される)。 */
+  .tx-filters {
+    grid-template-columns:
+      minmax(0, 1fr) minmax(0, 1fr) minmax(320px, 1.2fr) minmax(0, 0.8fr);
+  }
 }
 
 /* ============================================================
@@ -2747,9 +2964,10 @@ main:has(#dashboardKpiScreen.active) {
   padding: 22px 24px;
 }
 
-/* Transaction screen also needs more horizontal room — the toolbar
-   splits store filter / date range / new button into 3 columns and the
-   store dropdown becomes too narrow at 480px. */
+/* Transaction screen needs the most horizontal room of any screen: the
+   toolbar splits into 4 filter columns and the 仕入れ/小口 tables have
+   13〜14 列。広い画面ではできるだけ多くの列を横スクロールなしで見せたい
+   ので、他画面より大きく取る (それでも足りない分は表の中で横スクロール)。 */
 main:has(#transactionScreen.active) {
-  max-width: 880px;
+  max-width: 1600px;
 }

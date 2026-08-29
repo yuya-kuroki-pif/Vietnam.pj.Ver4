@@ -56,12 +56,22 @@ var DAILY_SALES_COLUMNS = [
 var PURCHASE_COLUMNS = [
   "id", "store", "date", "vendor", "productName", "specification",
   "category", "unitPrice", "quantity", "taxRate", "paymentMethod",
-  "method", "note", "createdAt"
+  "method", "note", "createdAt", "paymentStatus"
 ];
+
+// 仕入れの科目。CSV(Theo dõi hoá đơn)の "Danh Mục" と同じ粒度に揃えてある。
+// food / drink 以外はダッシュボードの原価計算では「その他原価」に集約される。
+var PURCHASE_CATEGORIES = [
+  "food", "drink", "consumables", "serviceFee", "staffMeal", "equipment", "other"
+];
+
+// 仕入れの支払状況。空文字は「未設定」。
+var PAYMENT_STATUSES = ["paid", "unpaid"];
 
 var PETTY_COLUMNS = [
   "id", "store", "date", "type", "category", "subCategory", "productName",
-  "amount", "taxRate", "paymentMethod", "vendor", "taxCode", "note", "createdAt"
+  "amount", "taxRate", "paymentMethod", "vendor", "taxCode", "note", "createdAt",
+  "unitPrice", "quantity"
 ];
 
 var STOCKTAKE_COLUMNS = [
@@ -173,6 +183,9 @@ function doPost(e) {
         break;
       case "listVendors":
         result = listVendors(body);
+        break;
+      case "listProductNames":
+        result = listProductNames(body);
         break;
       case "listStoreMaster":
         result = listStoreMaster(body);
@@ -1298,11 +1311,18 @@ function listPurchases(body) {
         quantity: _toNum(r.quantity),
         taxRate: _toNum(r.taxRate),
         paymentMethod: r.paymentMethod || "",
+        paymentStatus: _normPaymentStatus(r.paymentStatus),
         method: r.method || "manual",
         note: r.note,
       };
     }),
   };
+}
+
+// 支払状況を "paid" / "unpaid" / "" のいずれかに正規化する。
+function _normPaymentStatus(v) {
+  var s = String(v || "").trim();
+  return PAYMENT_STATUSES.indexOf(s) >= 0 ? s : "";
 }
 
 function registerPurchase(body) {
@@ -1333,6 +1353,7 @@ function registerPurchase(body) {
       quantity: _toNum(body.quantity),
       taxRate: _toNum(body.taxRate),
       paymentMethod: (body.paymentMethod || "").toString(),
+      paymentStatus: _normPaymentStatus(body.paymentStatus),
       method: (body.method || "manual").toString(),
       note: (body.note || "").toString(),
       createdAt: nowIso(),
@@ -1367,6 +1388,7 @@ function registerPurchaseBatch(body) {
   var store = (body.store || "").toString().trim();
   var vendor = (body.vendor || "").toString().trim();
   var paymentMethod = (body.paymentMethod || "").toString();
+  var paymentStatus = _normPaymentStatus(body.paymentStatus);
   var items = body.items;
   if (!date || !store) return { success: false, message: "Missing required fields" };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { success: false, message: "Invalid date" };
@@ -1397,6 +1419,7 @@ function registerPurchaseBatch(body) {
         quantity: quantity,
         taxRate: taxRate,
         paymentMethod: paymentMethod,
+        paymentStatus: paymentStatus,
         method: "manual",
         note: (item.note || "").toString(),
         createdAt: nowIso(),
@@ -1443,12 +1466,16 @@ function listPettyCash(body) {
   var store = (body.store || "").toString();
   var year = parseInt(body.year, 10);
   var month = parseInt(body.month, 10);
+  // dateFrom/dateTo を指定すると年月より優先して期間で絞り込む (CSV出力用)。
+  var dateFrom = (body.dateFrom || "").toString();
+  var dateTo = (body.dateTo || "").toString();
+  var useRange = !!(dateFrom || dateTo);
 
   var sheet = getSheet(PETTY_SHEET);
   var rows = getAllRows(sheet);
 
   var prefix = "";
-  if (year && month) {
+  if (!useRange && year && month) {
     var mm = month < 10 ? "0" + month : "" + month;
     prefix = year + "-" + mm;
   }
@@ -1456,7 +1483,12 @@ function listPettyCash(body) {
   var filtered = rows.filter(function (r) {
     var d = normalizeDate(r.date);
     if (store && String(r.store) !== store) return false;
-    if (prefix && d.indexOf(prefix) !== 0) return false;
+    if (useRange) {
+      if (dateFrom && d < dateFrom) return false;
+      if (dateTo && d > dateTo) return false;
+    } else if (prefix && d.indexOf(prefix) !== 0) {
+      return false;
+    }
     return true;
   });
 
@@ -1482,6 +1514,10 @@ function listPettyCash(body) {
       subCategory: r.subCategory,
       productName: r.productName || "",
       amount: amount,
+      // 数量対応前に登録された行は unitPrice/quantity が空。金額をそのまま
+      // 単価とみなし数量1として返すことで、画面もCSVも一貫して扱える。
+      unitPrice: _toNum(r.unitPrice) || amount,
+      quantity: _toNum(r.quantity) || 1,
       taxRate: _toNum(r.taxRate),
       paymentMethod: r.paymentMethod || "",
       vendor: r.vendor,
@@ -1494,12 +1530,25 @@ function listPettyCash(body) {
   return { success: true, items: items, balance: balance };
 }
 
+// 小口の金額は「単価(税込) × 数量」。単価/数量が未指定のリクエスト(旧クライアント)
+// では amount をそのまま使い、単価=amount / 数量=1 として保存する。
+function _resolvePettyAmount(src) {
+  var unitPrice = _toNum(src.unitPrice);
+  var quantity = _toNum(src.quantity);
+  if (unitPrice > 0 && quantity > 0) {
+    return { unitPrice: unitPrice, quantity: quantity, amount: unitPrice * quantity };
+  }
+  var amount = _toNum(src.amount);
+  return { unitPrice: amount, quantity: 1, amount: amount };
+}
+
 function registerPettyCash(body) {
   var date = (body.date || "").toString();
   var store = (body.store || "").toString().trim();
   var type = (body.type || "out").toString();
   var category = (body.category || "").toString().trim();
-  var amount = _toNum(body.amount);
+  var resolved = _resolvePettyAmount(body);
+  var amount = resolved.amount;
 
   if (!date || !store || !category) {
     return { success: false, message: "Missing required fields" };
@@ -1523,6 +1572,8 @@ function registerPettyCash(body) {
       subCategory: (body.subCategory || "").toString(),
       productName: (body.productName || "").toString(),
       amount: amount,
+      unitPrice: resolved.unitPrice,
+      quantity: resolved.quantity,
       taxRate: _toNum(body.taxRate),
       paymentMethod: (body.paymentMethod || "").toString(),
       vendor: vendorName,
@@ -1564,7 +1615,8 @@ function registerPettyCashBatch(body) {
     var inserted = 0;
     items.forEach(function (item) {
       var category = (item.category || "").toString().trim();
-      var amount = _toNum(item.amount);
+      var resolved = _resolvePettyAmount(item);
+      var amount = resolved.amount;
       if (!category || amount <= 0) return; // 必須欠損行はスキップ
       var data = {
         id: uuid(),
@@ -1575,6 +1627,8 @@ function registerPettyCashBatch(body) {
         subCategory: (item.subCategory || "").toString(),
         productName: (item.productName || "").toString(),
         amount: amount,
+        unitPrice: resolved.unitPrice,
+        quantity: resolved.quantity,
         taxRate: _toNum(item.taxRate),
         paymentMethod: "",
         vendor: vendor,
@@ -1630,6 +1684,42 @@ function listVendors(body) {
                   .filter(function (n) { return n; });
   names.sort();
   return { success: true, vendors: names };
+}
+
+// 商品名の入力候補。過去に登録された商品名を仕入れ・小口の両方から集め、
+// 大文字小文字を無視して重複を除いたうえで「直近に登録された順」に返す。
+// datalist はこの配列順にサジェストを表示するので、よく使う商品が上に来る。
+function listProductNames(body) {
+  var seen = {};   // lowercase name -> { name, date }
+  var items = [];
+
+  function collect(sheetName) {
+    getAllRows(getSheet(sheetName)).forEach(function (r) {
+      var name = String(r.productName || "").trim();
+      if (!name) return;
+      var date = normalizeDate(r.date);
+      var key = name.toLowerCase();
+      if (seen[key]) {
+        // 同じ商品名が複数回登録されている場合は最新の日付を採用する
+        if (date > seen[key].date) seen[key].date = date;
+        return;
+      }
+      seen[key] = { name: name, date: date };
+      items.push(seen[key]);
+    });
+  }
+  collect(PURCHASES_SHEET);
+  collect(PETTY_SHEET);
+
+  items.sort(function (a, b) {
+    if (a.date !== b.date) return a.date < b.date ? 1 : -1; // newest first
+    return a.name.localeCompare(b.name);
+  });
+
+  return {
+    success: true,
+    products: items.map(function (p) { return p.name; }),
+  };
 }
 
 // ----------------------------------------------------------------

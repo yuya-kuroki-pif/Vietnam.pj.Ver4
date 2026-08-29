@@ -494,13 +494,27 @@
         <!-- Purchase tab -->
         <div id="tx-tab-purchase" class="tx-tab-panel active">
           <div class="tx-toolbar">
-            <select id="purchaseStoreFilter" class="tx-input"></select>
-            <div class="tx-date-range">
-              <input type="date" id="purchaseDateFrom" class="tx-input" />
-              <span class="tx-arrow">→</span>
-              <input type="date" id="purchaseDateTo" class="tx-input" />
+            <div class="tx-filters">
+              <select id="purchaseStoreFilter" class="tx-input"></select>
+              <select id="purchaseVendorFilter" class="tx-input"></select>
+              <div class="tx-date-range">
+                <input type="date" id="purchaseDateFrom" class="tx-input" />
+                <span class="tx-arrow">→</span>
+                <input type="date" id="purchaseDateTo" class="tx-input" />
+              </div>
+              <select id="purchaseMethodFilter" class="tx-input">
+                <option value="" data-i18n="filterMethodAll">Tất cả</option>
+                <option value="manual" data-i18n="methodManual">Thủ công</option>
+                <option value="auto" data-i18n="methodAuto">Tự động</option>
+              </select>
             </div>
-            <button type="button" id="newPurchaseBtn" class="btn btn-primary tx-new-btn" data-i18n="newEntry">+ Đăng ký mới</button>
+            <div class="tx-actions">
+              <button type="button" id="newPurchaseBtn" class="btn btn-primary tx-new-btn" data-i18n="newEntry">+ Đăng ký mới</button>
+              <div class="tx-export-group">
+                <button type="button" id="exportPurchaseCsvBtn" class="btn btn-ghost tx-export-btn" data-i18n="exportCsv">⬇ CSV</button>
+                <button type="button" id="exportAllCsvFromPurchaseBtn" class="btn btn-ghost tx-export-btn" data-i18n="exportCsvAll">⬇ CSV (Mua hàng + Quỹ)</button>
+              </div>
+            </div>
           </div>
 
           <div id="purchaseList" class="tx-list"></div>
@@ -512,9 +526,23 @@
             💡 Giao dịch quỹ tiền mặt được phân loại theo khoản mục / khoản mục phụ.
           </div>
           <div class="tx-toolbar">
-            <select id="pettyStoreFilter" class="tx-input"></select>
-            <input type="month" id="pettyMonth" class="tx-input" />
-            <button type="button" id="newPettyBtn" class="btn btn-primary tx-new-btn" data-i18n="newEntry">+ Đăng ký mới</button>
+            <div class="tx-filters">
+              <select id="pettyStoreFilter" class="tx-input"></select>
+              <select id="pettyVendorFilter" class="tx-input"></select>
+              <input type="month" id="pettyMonth" class="tx-input" />
+              <select id="pettyTypeFilter" class="tx-input">
+                <option value="" data-i18n="filterTypeAll">Tất cả</option>
+                <option value="out" data-i18n="typeOut">Chi (出金)</option>
+                <option value="in" data-i18n="typeIn">Thu (入金)</option>
+              </select>
+            </div>
+            <div class="tx-actions">
+              <button type="button" id="newPettyBtn" class="btn btn-primary tx-new-btn" data-i18n="newEntry">+ Đăng ký mới</button>
+              <div class="tx-export-group">
+                <button type="button" id="exportPettyCsvBtn" class="btn btn-ghost tx-export-btn" data-i18n="exportCsv">⬇ CSV</button>
+                <button type="button" id="exportAllCsvFromPettyBtn" class="btn btn-ghost tx-export-btn" data-i18n="exportCsvAll">⬇ CSV (Mua hàng + Quỹ)</button>
+              </div>
+            </div>
           </div>
 
           <div id="pettyList" class="tx-list"></div>
@@ -646,6 +674,13 @@
           <option value="other" data-i18n="payOther">Khác</option>
         </select>
 
+        <label data-i18n="paymentStatus">Trạng thái thanh toán</label>
+        <select id="pPaymentStatus">
+          <option value=""></option>
+          <option value="paid" data-i18n="payStatusPaid">Đã thanh toán</option>
+          <option value="unpaid" data-i18n="payStatusUnpaid">Chưa thanh toán</option>
+        </select>
+
         <!-- 一括登録用アイテムリスト(JSで動的に追加) -->
         <div id="pItemsList" class="batch-items"></div>
 
@@ -668,12 +703,16 @@
             <button type="button" class="batch-item-remove" title="削除">×</button>
           </div>
           <label><span data-i18n="productName">Tên sản phẩm</span><span class="required">*</span></label>
-          <input type="text" data-field="productName" required maxlength="80" />
+          <input type="text" data-field="productName" list="productOptions" required maxlength="80" />
           <label data-i18n="category">Khoản mục</label>
           <select data-field="category">
             <option value=""></option>
-            <option value="food" data-i18n="catFood">Đồ ăn</option>
+            <option value="food" data-i18n="catFood">Thực phẩm</option>
             <option value="drink" data-i18n="catDrink">Đồ uống</option>
+            <option value="consumables" data-i18n="catConsumables">Vật tư tiêu hao</option>
+            <option value="serviceFee" data-i18n="catServiceFee">Phí dịch vụ</option>
+            <option value="staffMeal" data-i18n="catStaffMeal">Đồ ăn nhân viên</option>
+            <option value="equipment" data-i18n="catEquipment">Vật tư</option>
             <option value="other" data-i18n="catOther">Khác</option>
           </select>
           <div class="form-row-3">
@@ -776,14 +815,18 @@
           <label data-i18n="subCategory">Khoản mục phụ</label>
           <input type="text" data-field="subCategory" maxlength="60" />
           <label data-i18n="pettyProductName">購入物名</label>
-          <input type="text" data-field="productName" maxlength="120" />
-          <div class="form-row-2">
+          <input type="text" data-field="productName" list="productOptions" maxlength="120" />
+          <div class="form-row-3">
             <div>
-              <label><span data-i18n="amountInclTax">Số tiền (có thuế)</span><span class="required">*</span></label>
+              <label><span data-i18n="unitPriceInclTax">Đơn giá (có thuế)</span><span class="required">*</span></label>
               <div class="currency-input">
-                <input type="number" data-field="amount" min="0" step="1" inputmode="numeric" required />
+                <input type="number" data-field="unitPrice" min="0" step="1" inputmode="numeric" required />
                 <span class="currency-suffix">đ</span>
               </div>
+            </div>
+            <div>
+              <label><span data-i18n="quantity">Số lượng</span><span class="required">*</span></label>
+              <input type="number" data-field="quantity" min="0" step="any" inputmode="decimal" value="1" required />
             </div>
             <div>
               <label data-i18n="taxRate">Thuế suất</label>
@@ -794,6 +837,10 @@
                 <option value="10">10%</option>
               </select>
             </div>
+          </div>
+          <div class="batch-item-amount">
+            <span data-i18n="amountInclTax">Số tiền (có thuế)</span>:
+            <strong class="batch-item-amount-value">0 đ</strong>
           </div>
           <label data-i18n="note">Ghi chú</label>
           <input type="text" data-field="note" maxlength="200" />
@@ -1120,6 +1167,8 @@
 
   <datalist id="storeOptions"></datalist>
   <datalist id="vendorOptions"></datalist>
+  <!-- 過去に登録された商品名。仕入れ・小口の商品名入力の候補として使う -->
+  <datalist id="productOptions"></datalist>
 
   <!-- Add-shift modal -->
   <div id="addShiftModal" class="modal hidden" aria-hidden="true">
