@@ -440,6 +440,13 @@ const I18N = {
     editBtn: "Sửa",
     msgUserUpdated: "Đã cập nhật.",
     noRateBanner: "⚠ Chưa cài đơn giá lương (chi phí nhân công = 0): {names}",
+    tabShiftGrid: "Bảng ca",
+    sgHint: "Chạm vào ô để đăng ký / xóa ca làm việc",
+    sgStaffCount: "Số người",
+    sgHoursRow: "Số giờ",
+    sgLaborRow: "Chi phí NC (dự kiến)",
+    colTotal: "Tổng",
+    sgAddShift: "Thêm ca làm việc",
   },
   ja: {
     appTitle: "勤怠システム",
@@ -837,6 +844,13 @@ const I18N = {
     editBtn: "編集",
     msgUserUpdated: "更新しました。",
     noRateBanner: "⚠ 単価未設定(人件費0円で計算中): {names}",
+    tabShiftGrid: "シフト表",
+    sgHint: "セルをタップしてシフトを登録・削除できます",
+    sgStaffCount: "人数",
+    sgHoursRow: "時間",
+    sgLaborRow: "人件費(見込)",
+    colTotal: "合計",
+    sgAddShift: "シフトを追加",
   },
 };
 
@@ -918,6 +932,11 @@ function applyLanguage() {
   if (attCalState.userId && attCalState.year !== null) {
     renderAttendanceCalendar();
     updateAttMonthSummary();
+  }
+  // シフト表 (ヘッダー・サマリー行・凡例に翻訳を含む)
+  if (currentTab === "shiftGrid" && sgState.year !== null) {
+    renderSgLegend();
+    renderShiftGrid();
   }
 }
 
@@ -1091,6 +1110,8 @@ function switchTab(tab) {
   if (tab === "attendance") {
     if (attendanceUserId) refreshStatus();
     else clearAttendanceUI();
+  } else if (tab === "shiftGrid") {
+    enterShiftGrid();
   } else if (tab === "shiftRegister") {
     if (calYear === null) {
       const now = new Date();
@@ -1106,6 +1127,344 @@ function switchTab(tab) {
 
 document.querySelectorAll(".tab-btn").forEach((btn) => {
   btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+});
+
+// ============================================================
+// シフト表 (スタッフ×日付の月間グリッド)
+// 旧「シフト登録」「シフト管理」タブを統合した画面。
+// セルをタップ → モーダルでパターン/カスタム時刻の登録・削除。
+// 上部に日別サマリー (人数 / 時間 / 人件費見込) を表示する。
+// ============================================================
+const sgState = { store: "", year: null, month: null, shifts: [], byUserDate: {} };
+let sgModalCtx = { userId: "", date: "" };
+
+function sgYm() {
+  return `${sgState.year}-${String(sgState.month).padStart(2, "0")}`;
+}
+
+// シフト1件の時間数。終了が開始以前なら深夜跨ぎ (22:00-06:00) とみなす。
+function sgShiftHours(s) {
+  const [sh, sm] = String(s.startTime).split(":").map(Number);
+  const [eh, em] = String(s.endTime).split(":").map(Number);
+  let mins = (eh * 60 + em) - (sh * 60 + sm);
+  if (mins <= 0) mins += 24 * 60;
+  return mins / 60;
+}
+
+function sgPatternOf(s) {
+  return patterns.find(
+    (p) => p.startTime === s.startTime && p.endTime === s.endTime
+  ) || null;
+}
+
+async function enterShiftGrid() {
+  if (sgState.year === null) {
+    const now = new Date();
+    sgState.year = now.getFullYear();
+    sgState.month = now.getMonth() + 1;
+  }
+  document.getElementById("sgMonthInput").value = sgYm();
+  const sel = document.getElementById("sgStoreFilter");
+  const cur = sel.value || sgState.store;
+  sel.innerHTML = '<option value="">' + t("filterStoreAll") + "</option>";
+  kioskStores.forEach((s) => {
+    const o = document.createElement("option");
+    o.value = s;
+    o.textContent = s;
+    sel.appendChild(o);
+  });
+  sel.value = kioskStores.indexOf(cur) >= 0 ? cur : "";
+  sgState.store = sel.value;
+  if (!users.length) await loadUsers();
+  await loadShiftGrid();
+}
+
+async function loadShiftGrid() {
+  if (!patterns.length) {
+    const pr = await api("getPatterns");
+    if (pr && pr.success) patterns = pr.patterns || [];
+  }
+  const r = await api("listShifts", {
+    year: sgState.year,
+    month: sgState.month,
+    filterStore: sgState.store,
+  });
+  sgState.shifts = (r && r.shifts) || [];
+  sgState.byUserDate = {};
+  sgState.shifts.forEach((s) => {
+    const key = `${s.userId}|${s.date}`;
+    (sgState.byUserDate[key] = sgState.byUserDate[key] || []).push(s);
+  });
+  renderSgLegend();
+  renderShiftGrid();
+}
+
+function renderSgLegend() {
+  const root = document.getElementById("sgLegend");
+  root.innerHTML = "";
+  patterns.forEach((p) => {
+    const chip = document.createElement("span");
+    chip.className = "sg-legend-chip";
+    chip.style.background = p.color;
+    chip.textContent = `${p.name} ${p.startTime}-${p.endTime}`;
+    root.appendChild(chip);
+  });
+}
+
+function renderShiftGrid() {
+  const wrap = document.getElementById("sgGridWrap");
+  wrap.innerHTML = "";
+  const y = sgState.year, m = sgState.month;
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const today = todayLocalStr();
+  const wkKeys = ["weekdaySun", "weekdayMon", "weekdayTue", "weekdayWed", "weekdayThu", "weekdayFri", "weekdaySat"];
+
+  const dateStrs = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    dateStrs.push(`${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
+  }
+  const weekdayOf = (d) => new Date(y, m - 1, d).getDay();
+  const dayCls = (d, ds) =>
+    (weekdayOf(d) === 0 ? " sg-sun" : weekdayOf(d) === 6 ? " sg-sat" : "") +
+    (ds === today ? " sg-today" : "");
+
+  const table = document.createElement("table");
+  table.className = "sg-table";
+
+  // ---- ヘッダー (日付 + 曜日) ----
+  const thead = document.createElement("thead");
+  const htr = document.createElement("tr");
+  const thName = document.createElement("th");
+  thName.className = "sg-sticky-col";
+  thName.textContent = t("colEmployee");
+  htr.appendChild(thName);
+  for (let d = 1; d <= daysInMonth; d++) {
+    const th = document.createElement("th");
+    th.className = "sg-day" + dayCls(d, dateStrs[d - 1]);
+    th.innerHTML = `${d}<span class="sg-wd">${t(wkKeys[weekdayOf(d)])}</span>`;
+    htr.appendChild(th);
+  }
+  const thTot = document.createElement("th");
+  thTot.className = "sg-total-col";
+  thTot.textContent = t("colTotal");
+  htr.appendChild(thTot);
+  thead.appendChild(htr);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+
+  // ---- 集計 (日別 + 従業員別) ----
+  const dayStats = dateStrs.map(() => ({ people: 0, hours: 0, labor: 0 }));
+  let grandHours = 0, grandLabor = 0, grandPeopleDays = 0;
+  const userRows = users.map((u) => {
+    let uHours = 0, uDays = 0;
+    const cells = dateStrs.map((ds, i) => {
+      const shifts = sgState.byUserDate[`${u.id}|${ds}`] || [];
+      if (!shifts.length) return shifts;
+      const h = shifts.reduce((a, s) => a + sgShiftHours(s), 0);
+      uHours += h;
+      uDays += 1;
+      const labor = Number(u.dailyRate) > 0
+        ? Number(u.dailyRate)
+        : h * (Number(u.hourlyRate) || 0);
+      dayStats[i].people += 1;
+      dayStats[i].hours += h;
+      dayStats[i].labor += labor;
+      grandHours += h;
+      grandLabor += labor;
+      grandPeopleDays += 1;
+      return shifts;
+    });
+    return { u, cells, uHours, uDays };
+  });
+
+  // ---- サマリー行 ----
+  const fmtHoursNum = (v) => String(Math.round(v * 4) / 4);
+  const fmtLabor = (v) =>
+    v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : Math.round(v).toLocaleString("vi-VN");
+  const addSumRow = (label, get, total) => {
+    const tr = document.createElement("tr");
+    tr.className = "sg-sum-row";
+    const td0 = document.createElement("td");
+    td0.className = "sg-sticky-col";
+    td0.textContent = label;
+    tr.appendChild(td0);
+    dayStats.forEach((st, i) => {
+      const td = document.createElement("td");
+      td.className = dateStrs[i] === today ? "sg-today" : "";
+      td.textContent = get(st);
+      tr.appendChild(td);
+    });
+    const tdT = document.createElement("td");
+    tdT.className = "sg-total-col";
+    tdT.textContent = total;
+    tr.appendChild(tdT);
+    tbody.appendChild(tr);
+  };
+  addSumRow(t("sgStaffCount"), (s) => (s.people ? s.people : ""), String(grandPeopleDays));
+  addSumRow(t("sgHoursRow"), (s) => (s.hours ? fmtHoursNum(s.hours) : ""), fmtHoursNum(grandHours));
+  addSumRow(t("sgLaborRow"), (s) => (s.labor ? fmtLabor(s.labor) : ""), fmtLabor(grandLabor));
+
+  // ---- 従業員行 ----
+  userRows.forEach(({ u, cells, uHours, uDays }) => {
+    const tr = document.createElement("tr");
+    const tdName = document.createElement("td");
+    tdName.className = "sg-sticky-col sg-name";
+    tdName.textContent = u.name;
+    tr.appendChild(tdName);
+    cells.forEach((shifts, i) => {
+      const td = document.createElement("td");
+      td.className = "sg-cell" + dayCls(i + 1, dateStrs[i]);
+      shifts.forEach((s) => {
+        const p = sgPatternOf(s);
+        const chip = document.createElement("div");
+        chip.className = "sg-chip" + (p ? " sg-chip-pattern" : "");
+        if (p) chip.style.background = p.color;
+        chip.textContent = `${s.startTime}-${s.endTime}`;
+        td.appendChild(chip);
+      });
+      td.addEventListener("click", () => openSgModal(u.id, dateStrs[i]));
+      tr.appendChild(td);
+    });
+    const tdTot = document.createElement("td");
+    tdTot.className = "sg-total-col";
+    tdTot.innerHTML = uDays
+      ? `${fmtHoursNum(uHours)}h<span class="sg-wd">${t("unitDaysFmt").replace("{n}", uDays)}</span>`
+      : "";
+    tr.appendChild(tdTot);
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+}
+
+// ---- セル編集モーダル ----
+function openSgModal(userId, date) {
+  sgModalCtx = { userId, date };
+  const u = users.find((x) => String(x.id) === String(userId));
+  document.getElementById("sgModalUser").textContent = u ? u.name : "";
+  document.getElementById("sgModalDate").textContent = formatShiftDate(date);
+  renderSgModalShifts();
+  renderSgModalPatterns();
+  document.getElementById("sgStart").value = "";
+  document.getElementById("sgEnd").value = "";
+  document.getElementById("sgModal").classList.remove("hidden");
+}
+
+function closeSgModal() {
+  document.getElementById("sgModal").classList.add("hidden");
+}
+
+function renderSgModalShifts() {
+  const root = document.getElementById("sgModalShifts");
+  root.innerHTML = "";
+  const shifts = sgState.byUserDate[`${sgModalCtx.userId}|${sgModalCtx.date}`] || [];
+  shifts.forEach((s) => {
+    const row = document.createElement("div");
+    row.className = "sg-modal-shift-row";
+    const p = sgPatternOf(s);
+    const chip = document.createElement("span");
+    chip.className = "sg-chip" + (p ? " sg-chip-pattern" : "");
+    if (p) chip.style.background = p.color;
+    chip.textContent = `${s.startTime}-${s.endTime}` + (p ? ` (${p.name})` : "");
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "sg-del-btn";
+    del.textContent = t("deleteShiftBtn");
+    del.addEventListener("click", async () => {
+      if (!confirm(t("deleteConfirm"))) return;
+      const r = await api("deleteShift", { shiftId: s.id });
+      if (r.success) {
+        showToast(t("msgShiftDeleted"), "success");
+        await loadShiftGrid();
+        renderSgModalShifts();
+      } else {
+        showToast(r.message || t("msgError"), "error");
+      }
+    });
+    row.appendChild(chip);
+    row.appendChild(del);
+    root.appendChild(row);
+  });
+}
+
+function renderSgModalPatterns() {
+  const root = document.getElementById("sgModalPatterns");
+  root.innerHTML = "";
+  patterns.forEach((p) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "sg-pattern-btn";
+    b.innerHTML =
+      `<span class="sg-dot" style="background:${p.color}"></span>` +
+      `${p.name}<span class="sg-pattern-time">${p.startTime}-${p.endTime}</span>`;
+    b.addEventListener("click", () => sgRegister(p.startTime, p.endTime));
+    root.appendChild(b);
+  });
+}
+
+async function sgRegister(startTime, endTime) {
+  if (!/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime)) {
+    showToast(t("msgShiftInvalidTime"), "error");
+    return;
+  }
+  const r = await api("registerShift", {
+    userId: sgModalCtx.userId,
+    date: sgModalCtx.date,
+    startTime,
+    endTime,
+    note: "",
+    store: sgState.store,
+  });
+  if (r.success) {
+    showToast(t("msgShiftRegistered"), "success");
+    await loadShiftGrid();
+    renderSgModalShifts();
+  } else {
+    showToast(r.message || t("msgError"), "error");
+  }
+}
+
+document.getElementById("sgModalClose").addEventListener("click", closeSgModal);
+document.getElementById("sgModalCancel").addEventListener("click", closeSgModal);
+document.querySelector("#sgModal .modal-backdrop").addEventListener("click", closeSgModal);
+document.getElementById("sgAddCustom").addEventListener("click", () => {
+  sgRegister(
+    document.getElementById("sgStart").value,
+    document.getElementById("sgEnd").value
+  );
+});
+document.getElementById("sgStoreFilter").addEventListener("change", (e) => {
+  sgState.store = e.target.value;
+  setLastStore(e.target.value);
+  loadShiftGrid();
+});
+document.getElementById("sgMonthInput").addEventListener("change", (e) => {
+  const v = e.target.value;
+  if (!/^\d{4}-\d{2}$/.test(v)) return;
+  sgState.year = parseInt(v.slice(0, 4), 10);
+  sgState.month = parseInt(v.slice(5, 7), 10);
+  loadShiftGrid();
+});
+document.getElementById("sgPrevMonth").addEventListener("click", () => {
+  sgState.month -= 1;
+  if (sgState.month < 1) { sgState.month = 12; sgState.year -= 1; }
+  document.getElementById("sgMonthInput").value = sgYm();
+  loadShiftGrid();
+});
+document.getElementById("sgNextMonth").addEventListener("click", () => {
+  sgState.month += 1;
+  if (sgState.month > 12) { sgState.month = 1; sgState.year += 1; }
+  document.getElementById("sgMonthInput").value = sgYm();
+  loadShiftGrid();
+});
+document.getElementById("sgThisMonth").addEventListener("click", () => {
+  const now = new Date();
+  sgState.year = now.getFullYear();
+  sgState.month = now.getMonth() + 1;
+  document.getElementById("sgMonthInput").value = sgYm();
+  loadShiftGrid();
 });
 
 // ============================================================

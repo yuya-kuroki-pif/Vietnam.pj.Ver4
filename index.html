@@ -126,8 +126,7 @@
       <div class="card">
         <nav class="tab-bar">
           <button class="tab-btn active" data-tab="attendance" data-i18n="tabAttendance">Chấm công</button>
-          <button class="tab-btn" data-tab="shiftRegister" data-i18n="tabShiftRegister">Đăng ký ca</button>
-          <button class="tab-btn" data-tab="shiftManage" data-i18n="tabShiftManage">Quản lý ca</button>
+          <button class="tab-btn" data-tab="shiftGrid" data-i18n="tabShiftGrid">Bảng ca</button>
         </nav>
 
         <!-- Attendance tab -->
@@ -164,7 +163,25 @@
           <ul id="todayLog" class="log-list"></ul>
         </div>
 
-        <!-- Shift register tab -->
+        <!-- Shift grid tab (スタッフ×日付の月間シフト表) -->
+        <div id="tab-shiftGrid" class="tab-panel">
+          <div class="sg-toolbar">
+            <select id="sgStoreFilter" class="tx-input sg-store-filter">
+              <option value="" data-i18n="filterStoreAll">-- 全店舗 --</option>
+            </select>
+            <div class="dash-toolbar att-month-nav sg-month-nav">
+              <button type="button" id="sgPrevMonth" class="btn btn-ghost month-btn">«</button>
+              <input type="month" id="sgMonthInput" class="tx-input att-month-input" />
+              <button type="button" id="sgNextMonth" class="btn btn-ghost month-btn">»</button>
+              <button type="button" id="sgThisMonth" class="btn btn-ghost btn-sm" data-i18n="dashRangeThisMonth">今月</button>
+            </div>
+          </div>
+          <div id="sgLegend" class="sg-legend"></div>
+          <div id="sgGridWrap" class="sg-grid-wrap"></div>
+          <div class="cal-hint muted" data-i18n="sgHint">セルをタップしてシフトを登録・削除できます</div>
+        </div>
+
+        <!-- Shift register tab (旧UI・タブからは非表示) -->
         <div id="tab-shiftRegister" class="tab-panel">
           <div class="picker-row">
             <label class="picker-label" data-i18n="pickStore">Chọn cửa hàng</label>
@@ -518,6 +535,33 @@
           <button type="button" id="attEditDelete" class="btn btn-danger btn-block" data-i18n="deleteBtn">削除</button>
           <button type="button" id="attEditCancel" class="btn btn-ghost btn-block" data-i18n="cancel">キャンセル</button>
         </form>
+      </div>
+    </div>
+
+    <!-- シフト表: セル編集モーダル (シフト追加/削除) -->
+    <div id="sgModal" class="modal hidden" aria-hidden="true">
+      <div class="modal-backdrop"></div>
+      <div class="modal-card">
+        <button type="button" class="modal-close" id="sgModalClose">&times;</button>
+        <h3>
+          <span id="sgModalUser"></span>
+          <span id="sgModalDate" style="color:var(--muted);font-size:14px;font-weight:400;margin-left:8px;"></span>
+        </h3>
+        <div id="sgModalShifts" class="sg-modal-shifts"></div>
+        <h4 class="form-section" data-i18n="sgAddShift">シフトを追加</h4>
+        <div id="sgModalPatterns" class="sg-pattern-btns"></div>
+        <div class="form-row-2">
+          <div>
+            <label data-i18n="shiftStart">開始</label>
+            <input type="time" id="sgStart" />
+          </div>
+          <div>
+            <label data-i18n="shiftEnd">終了</label>
+            <input type="time" id="sgEnd" />
+          </div>
+        </div>
+        <button type="button" id="sgAddCustom" class="btn btn-primary" data-i18n="registerShiftBtn">登録</button>
+        <button type="button" id="sgModalCancel" class="btn btn-ghost btn-block" data-i18n="close">閉じる</button>
       </div>
     </div>
 

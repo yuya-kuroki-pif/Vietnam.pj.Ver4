@@ -3156,3 +3156,220 @@ main:has(#transactionScreen.active) {
   #attSumList .tx-table tbody td { padding: 8px 6px; }
   .att-sum-emp { min-width: 104px; }
 }
+
+
+/* ============================================================
+ * シフト表 (スタッフ×日付の月間グリッド)
+ * ============================================================ */
+/* シフト表タブ表示中はキオスク画面の幅を広げ、月の多くの日を一度に見せる */
+main:has(#tab-shiftGrid.active) {
+  max-width: 1500px;
+}
+
+.sg-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 12px 0;
+}
+
+.sg-toolbar .sg-store-filter {
+  width: auto;
+  min-width: 160px;
+  flex: 0 0 auto;
+  margin-bottom: 0;
+}
+
+.sg-toolbar .sg-month-nav { margin-bottom: 0; justify-content: flex-start; }
+
+.sg-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.sg-legend-chip {
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.sg-grid-wrap {
+  overflow: auto;
+  max-height: 72vh;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  -webkit-overflow-scrolling: touch;
+}
+
+.sg-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.sg-table th,
+.sg-table td {
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 3px 4px;
+  text-align: center;
+  vertical-align: top;
+  background: #fff;
+  min-width: 68px;
+  max-width: 92px;
+}
+
+.sg-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--bg);
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.sg-table thead th.sg-sun { color: var(--danger); }
+.sg-table thead th.sg-sat { color: var(--primary); }
+
+.sg-wd {
+  display: block;
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.sg-sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #fff;
+  text-align: left !important;
+  min-width: 96px;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+.sg-table thead th.sg-sticky-col { z-index: 4; background: var(--bg); }
+
+.sg-sum-row td {
+  background: #fffbeb; /* 参考画像のサマリー帯に合わせた淡黄色 */
+  font-weight: 600;
+  color: #92400e;
+}
+
+.sg-sum-row td.sg-sticky-col { background: #fffbeb; color: #92400e; }
+
+.sg-total-col {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: var(--bg) !important;
+  font-weight: 700;
+  min-width: 64px;
+}
+
+.sg-table thead th.sg-total-col { z-index: 4; }
+
+.sg-cell { cursor: pointer; height: 34px; }
+.sg-cell:hover { background: #eff6ff; }
+.sg-cell.sg-sun { background: #fff7f7; }
+.sg-cell.sg-sat { background: #f6faff; }
+td.sg-today, th.sg-today { background: #fefce8 !important; }
+
+.sg-chip {
+  display: block;
+  border-radius: 4px;
+  background: #e5e7eb;
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 3px;
+  margin: 1px 0;
+  white-space: nowrap;
+}
+
+.sg-chip-pattern { color: #fff; }
+
+/* モーダル */
+.sg-modal-shifts { margin-bottom: 4px; }
+
+.sg-modal-shift-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.sg-modal-shift-row .sg-chip {
+  display: inline-block;
+  font-size: 13px;
+  padding: 4px 10px;
+  margin: 0;
+}
+
+.sg-del-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.sg-del-btn:hover { background: #fee2e2; }
+
+.sg-pattern-btns {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.sg-pattern-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  padding: 9px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.sg-pattern-btn:hover { background: #f8fafc; }
+
+.sg-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.sg-pattern-time {
+  margin-left: auto;
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 13px;
+}
+
+@media (max-width: 480px) {
+  .sg-table th, .sg-table td { min-width: 56px; padding: 2px 3px; }
+  .sg-sticky-col { min-width: 78px; max-width: 96px; font-size: 10px; }
+  .sg-chip { font-size: 9px; }
+}
