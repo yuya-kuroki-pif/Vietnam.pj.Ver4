@@ -93,6 +93,17 @@
         </span>
         <span data-i18n="menuAttendanceManage">Sửa chấm công</span>
       </button>
+      <button type="button" class="drawer-item" data-target="attendanceSummary">
+        <span class="drawer-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 3v18h18"/>
+            <rect x="7" y="12" width="3" height="6"/>
+            <rect x="12" y="8" width="3" height="10"/>
+            <rect x="17" y="5" width="3" height="13"/>
+          </svg>
+        </span>
+        <span data-i18n="menuAttendanceSummary">Tổng hợp chấm công</span>
+      </button>
       <button type="button" class="drawer-item" data-target="master">
         <span class="drawer-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -122,6 +133,13 @@
         <!-- Attendance tab -->
         <div id="tab-attendance" class="tab-panel active">
           <div class="picker-row">
+            <label class="picker-label" data-i18n="pickStore">Chọn cửa hàng</label>
+            <select id="storePickerAttendance" class="user-picker">
+              <option value="" data-i18n="pickStorePlaceholder">-- Chọn cửa hàng --</option>
+            </select>
+          </div>
+
+          <div class="picker-row">
             <label class="picker-label" data-i18n="pickUser">Chọn nhân viên</label>
             <select id="userPickerAttendance" class="user-picker">
               <option value="" data-i18n="pickPlaceholder">-- Chọn --</option>
@@ -148,6 +166,13 @@
 
         <!-- Shift register tab -->
         <div id="tab-shiftRegister" class="tab-panel">
+          <div class="picker-row">
+            <label class="picker-label" data-i18n="pickStore">Chọn cửa hàng</label>
+            <select id="storePickerShift" class="user-picker">
+              <option value="" data-i18n="pickStorePlaceholder">-- Chọn cửa hàng --</option>
+            </select>
+          </div>
+
           <div class="picker-row">
             <label class="picker-label" data-i18n="pickUser">Chọn nhân viên</label>
             <select id="userPickerShift" class="user-picker">
@@ -184,6 +209,12 @@
           </div>
           <div class="cal-toolbar">
             <button type="button" id="thisWeekBtn" class="btn-mini" data-i18n="thisWeekBtn">今週</button>
+          </div>
+          <div class="picker-row">
+            <label class="picker-label" data-i18n="filterByStore">Lọc theo cửa hàng</label>
+            <select id="storeFilterManage" class="user-picker">
+              <option value="" data-i18n="filterAll">-- Tất cả --</option>
+            </select>
           </div>
           <div class="picker-row">
             <label class="picker-label" data-i18n="filterByUser">Lọc theo nhân viên</label>
@@ -359,9 +390,18 @@
       <div class="card">
         <h2 data-i18n="attMngTitle">勤怠管理</h2>
 
+        <!-- 退勤忘れ警告 (該当者がいるときだけJSで表示) -->
+        <div id="attUnclosedBanner" class="att-unclosed-banner hidden"></div>
+
         <div class="dash-toolbar">
           <select id="attMngUserFilter" class="tx-input">
             <option value="" data-i18n="pickPlaceholder">-- 選択してください --</option>
+          </select>
+        </div>
+
+        <div class="dash-toolbar">
+          <select id="attMngStoreFilter" class="tx-input">
+            <option value="" data-i18n="filterStoreAll">-- 全店舗 --</option>
           </select>
         </div>
 
@@ -385,6 +425,38 @@
         </div>
 
         <div id="attMngCalendar" class="att-calendar"></div>
+      </div>
+    </section>
+
+    <!-- 勤怠集計 (従業員別 × 店舗別) -->
+    <section id="attendanceSummaryScreen" class="screen">
+      <div class="card">
+        <h2 data-i18n="attSumTitle">勤怠集計</h2>
+        <div class="dash-info-banner">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <span data-i18n="attSumBanner">打刻した店舗ごとに集計しています。所属店舗以外での勤務はその店舗側に計上されます。</span>
+        </div>
+
+        <div class="tx-toolbar">
+          <div class="tx-filters">
+            <select id="attSumStoreFilter" class="tx-input">
+              <option value="" data-i18n="filterStoreAll">-- 全店舗 --</option>
+            </select>
+            <input type="month" id="attSumMonth" class="tx-input" />
+          </div>
+          <div class="tx-actions">
+            <div class="tx-export-group">
+              <button type="button" id="attSumExportBtn" class="btn btn-ghost tx-export-btn" data-i18n="exportCsv">⬇ CSV</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="attSumStoreCards" class="att-sum-cards"></div>
+        <div id="attSumList"></div>
       </div>
     </section>
 
@@ -434,6 +506,11 @@
             <option value="break_start" data-i18n="logBreakStart">休憩開始</option>
             <option value="break_end" data-i18n="logBreakEnd">休憩終了</option>
             <option value="clock_out" data-i18n="logClockOut">退勤</option>
+          </select>
+
+          <label data-i18n="attMngStore">店舗</label>
+          <select id="attEditStore">
+            <option value=""></option>
           </select>
 
           <button type="submit" class="btn btn-primary" data-i18n="saveBtn">保存</button>

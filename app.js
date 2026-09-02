@@ -246,6 +246,30 @@ const I18N = {
     msgAtLeastOneItem: "Cần ít nhất 1 mục",
     msgItemsRegistered: "mục đã đăng ký",
     menuAttendanceManage: "Sửa chấm công",
+    menuAttendanceSummary: "Tổng hợp chấm công",
+    pickStore: "Chọn cửa hàng",
+    pickStorePlaceholder: "-- Chọn cửa hàng --",
+    filterByStore: "Lọc theo cửa hàng",
+    filterStoreAll: "-- Tất cả cửa hàng --",
+    msgPickStoreFirst: "Vui lòng chọn cửa hàng trước.",
+    attMngStore: "Cửa hàng",
+    attSumTitle: "Tổng hợp chấm công",
+    attSumBanner: "Tổng hợp theo cửa hàng đã chấm công. Ca làm ở cửa hàng khác được tính cho cửa hàng đó.",
+    attSumEmpty: "Không có dữ liệu chấm công trong tháng này.",
+    colStore: "Cửa hàng",
+    colEmployee: "Nhân viên",
+    colWorkDays: "Số ngày",
+    colWorkHours: "Số giờ",
+    colRate: "Đơn giá",
+    colLaborCost: "Chi phí nhân công",
+    rateTypeHourly: "Theo giờ",
+    rateTypeDaily: "Theo ngày",
+    awayBadge: "Hỗ trợ",
+    attSumTotal: "Tổng cộng",
+    attSumPeople: "{n} người",
+    attUnclosedTitle: "⚠ Có người chưa chấm công ra",
+    attUnclosedRow: "{name} — {store} — vào lúc {at} ({hours} giờ trước)",
+    attUnclosedHint: "Nếu để nguyên, toàn bộ thời gian này sẽ bị tính vào chi phí nhân công. Vui lòng sửa lại.",
     attMngTitle: "Quản lý chấm công",
     attMngAllUsers: "-- Tất cả --",
     attMngPickUserFirst: "Vui lòng chọn nhân viên",
@@ -594,6 +618,30 @@ const I18N = {
     msgAtLeastOneItem: "アイテムは最低1件必要です",
     msgItemsRegistered: "件 登録しました",
     menuAttendanceManage: "勤怠管理",
+    menuAttendanceSummary: "勤怠集計",
+    pickStore: "店舗を選択",
+    pickStorePlaceholder: "-- 店舗を選択 --",
+    filterByStore: "店舗で絞り込み",
+    filterStoreAll: "-- 全店舗 --",
+    msgPickStoreFirst: "先に店舗を選択してください。",
+    attMngStore: "店舗",
+    attSumTitle: "勤怠集計（従業員別×店舗別）",
+    attSumBanner: "打刻した店舗ごとに集計しています。所属店舗以外での勤務はその店舗側に計上されます。",
+    attSumEmpty: "この月の勤怠データがありません。",
+    colStore: "店舗",
+    colEmployee: "従業員",
+    colWorkDays: "出勤日数",
+    colWorkHours: "労働時間",
+    colRate: "単価",
+    colLaborCost: "人件費",
+    rateTypeHourly: "時給",
+    rateTypeDaily: "日給",
+    awayBadge: "応援",
+    attSumTotal: "合計",
+    attSumPeople: "{n} 名",
+    attUnclosedTitle: "⚠ 退勤打刻が済んでいない人がいます",
+    attUnclosedRow: "{name} — {store} — {at} に出勤（{hours} 時間経過）",
+    attUnclosedHint: "このままだと全時間が人件費に計上されます。打刻を修正してください。",
     attMngTitle: "勤怠管理(一覧・修正)",
     attMngAllUsers: "-- 全ユーザー --",
     attMngPickUserFirst: "従業員を選択してください",
@@ -888,6 +936,50 @@ async function loadUsers() {
   }
 }
 
+// ------------------------------------------------------------
+// 店舗セレクタ (打刻 / シフト / 勤怠)
+// 打刻は「どの店舗で働いたか」を毎回選んでもらう。所属店舗ではなく
+// 打刻時に選ばれた店舗が人件費の計上先になる。
+// ------------------------------------------------------------
+let attendanceStore = "";
+let shiftStore = "";
+let manageFilterStore = "";
+let kioskStores = [];
+
+async function loadKioskStores() {
+  const r = await api("listStores");
+  if (r && r.success) kioskStores = r.stores || [];
+  refreshStorePickerOptions();
+}
+
+function refreshStorePickerOptions() {
+  const pickers = [
+    { id: "storePickerAttendance", placeholderKey: "pickStorePlaceholder", value: attendanceStore },
+    { id: "storePickerShift", placeholderKey: "pickStorePlaceholder", value: shiftStore },
+    { id: "storeFilterManage", placeholderKey: "filterAll", value: manageFilterStore },
+    { id: "attMngStoreFilter", placeholderKey: "filterStoreAll", value: attMngStoreFilterValue },
+    { id: "attEditStore", placeholderKey: "", value: null },
+    { id: "attSumStoreFilter", placeholderKey: "filterStoreAll", value: attSumState.store },
+  ];
+  pickers.forEach(({ id, placeholderKey, value }) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const cur = value === null ? el.value : value;
+    el.innerHTML = "";
+    const ph = document.createElement("option");
+    ph.value = "";
+    ph.textContent = placeholderKey ? t(placeholderKey) : "";
+    el.appendChild(ph);
+    kioskStores.forEach((s) => {
+      const opt = document.createElement("option");
+      opt.value = s;
+      opt.textContent = s;
+      el.appendChild(opt);
+    });
+    el.value = kioskStores.indexOf(cur) >= 0 ? cur : "";
+  });
+}
+
 function refreshUserPickerOptions() {
   const pickers = [
     { el: document.getElementById("userPickerAttendance"), placeholderKey: "pickPlaceholder", value: attendanceUserId },
@@ -987,6 +1079,9 @@ document.querySelectorAll(".drawer-item").forEach((item) => {
     } else if (target === "attendanceManage") {
       showScreen("attendanceManageScreen");
       enterAttendanceManageScreen();
+    } else if (target === "attendanceSummary") {
+      showScreen("attendanceSummaryScreen");
+      enterAttendanceSummaryScreen();
     }
     setActiveDrawerItem(target);
     closeDrawer();
@@ -1056,6 +1151,10 @@ document.getElementById("registerForm").addEventListener("submit", async (e) => 
 // ============================================================
 // Attendance tab
 // ============================================================
+document.getElementById("storePickerAttendance").addEventListener("change", (e) => {
+  attendanceStore = e.target.value;
+});
+
 document.getElementById("userPickerAttendance").addEventListener("change", (e) => {
   attendanceUserId = e.target.value;
   // Capture name/role for the selected user so we can send them with each
@@ -1166,6 +1265,10 @@ function predictNextStatus(curr, type) {
 }
 
 async function recordAttendance(type, successKey) {
+  if (!attendanceStore) {
+    showToast(t("msgPickStoreFirst"), "error");
+    return;
+  }
   if (!attendanceUserId) {
     showToast(t("msgPickUserFirst"), "error");
     return;
@@ -1188,6 +1291,8 @@ async function recordAttendance(type, successKey) {
     const result = await api("record", {
       userId: attendanceUserId,
       type,
+      // 打刻店舗。この値がそのままその店舗の人件費になる。
+      store: attendanceStore,
       // Supply name/role so the backend doesn't need to query the Users sheet.
       name: attendanceUserInfo ? attendanceUserInfo.name : "",
       role: attendanceUserInfo ? attendanceUserInfo.role : "",
@@ -1266,6 +1371,10 @@ function formatDateLocal(d) {
   const da = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${da}`;
 }
+
+document.getElementById("storePickerShift").addEventListener("change", (e) => {
+  shiftStore = e.target.value;
+});
 
 document.getElementById("userPickerShift").addEventListener("change", (e) => {
   shiftUserId = e.target.value;
@@ -1562,6 +1671,7 @@ document.getElementById("modalSubmitBtn").addEventListener("click", async () => 
     startTime: normalizeTimeStr(startTime),
     endTime: normalizeTimeStr(endTime),
     note,
+    store: shiftStore,
   });
   if (result.success) {
     showToast(t("msgShiftRegistered"), "success");
@@ -1668,6 +1778,7 @@ async function quickToggleShift(dateStr) {
       startTime: normalizeTimeStr(p.startTime),
       endTime: normalizeTimeStr(p.endTime),
       note: "",
+      store: shiftStore,
     });
     if (result.success) showToast(t("msgShiftRegistered"), "success");
   }
@@ -1776,6 +1887,11 @@ function userColor(userId) {
   return `hsl(${hue}, 65%, 48%)`;
 }
 
+document.getElementById("storeFilterManage").addEventListener("change", (e) => {
+  manageFilterStore = e.target.value;
+  loadManageShifts();
+});
+
 document.getElementById("userFilterManage").addEventListener("change", (e) => {
   manageFilterUserId = e.target.value;
   loadManageShifts();
@@ -1812,6 +1928,7 @@ async function loadManageShifts() {
     dateFrom: fromStr,
     dateTo: toStr,
     filterUserId: manageFilterUserId,
+    filterStore: manageFilterStore,
   });
   const shifts = (result && result.shifts) || [];
   renderWeekGrid(shifts);
@@ -3068,6 +3185,187 @@ document.getElementById("exportPettyCsvBtn")
   .addEventListener("click", () => exportTransactionsCsv("petty", "petty"));
 document.getElementById("exportAllCsvFromPettyBtn")
   .addEventListener("click", () => exportTransactionsCsv("all", "petty"));
+
+
+// ============================================================
+// 勤怠集計 (従業員別 × 店舗別)
+// バックエンドの buildAttendanceBreakdown をそのまま表示するので、
+// ダッシュボードの人件費と必ず一致する。
+// ============================================================
+const attSumState = { store: "", year: null, month: null, rows: [], byStore: [], totals: null };
+
+function fmtHours(h) {
+  const n = Number(h) || 0;
+  const hh = Math.floor(n);
+  const mm = Math.round((n - hh) * 60);
+  // 59.7分が60分に丸まって "8h60m" になるのを防ぐ
+  if (mm === 60) return `${hh + 1}h 0m`;
+  return `${hh}h ${mm}m`;
+}
+
+function enterAttendanceSummaryScreen() {
+  if (attSumState.year === null) {
+    const now = new Date();
+    attSumState.year = now.getFullYear();
+    attSumState.month = now.getMonth() + 1;
+  }
+  const ym = `${attSumState.year}-${String(attSumState.month).padStart(2, "0")}`;
+  document.getElementById("attSumMonth").value = ym;
+  refreshStorePickerOptions();
+  loadAttendanceSummary();
+}
+
+document.getElementById("attSumMonth").addEventListener("change", (e) => {
+  const v = e.target.value;
+  if (!/^\d{4}-\d{2}$/.test(v)) return;
+  attSumState.year = parseInt(v.slice(0, 4), 10);
+  attSumState.month = parseInt(v.slice(5, 7), 10);
+  loadAttendanceSummary();
+});
+
+document.getElementById("attSumStoreFilter").addEventListener("change", (e) => {
+  attSumState.store = e.target.value;
+  loadAttendanceSummary();
+});
+
+async function loadAttendanceSummary() {
+  const r = await api("getAttendanceSummary", {
+    year: attSumState.year,
+    month: attSumState.month,
+    store: attSumState.store,
+  });
+  attSumState.rows = (r && r.rows) || [];
+  attSumState.byStore = (r && r.byStore) || [];
+  attSumState.totals = (r && r.totals) || { cost: 0, hours: 0, days: 0 };
+  renderAttendanceSummary();
+}
+
+function renderAttendanceSummary() {
+  // ----- 店舗別カード -----
+  const cards = document.getElementById("attSumStoreCards");
+  cards.innerHTML = "";
+  attSumState.byStore.forEach((s) => {
+    const card = document.createElement("div");
+    card.className = "att-sum-card";
+
+    const name = document.createElement("div");
+    name.className = "att-sum-card-store";
+    name.textContent = s.store || "—";
+    card.appendChild(name);
+
+    const cost = document.createElement("div");
+    cost.className = "att-sum-card-cost";
+    cost.textContent = fmtVnd(s.cost);
+    card.appendChild(cost);
+
+    const meta = document.createElement("div");
+    meta.className = "att-sum-card-meta";
+    meta.textContent = `${fmtHours(s.hours)} / ${s.days}${t("colWorkDays")} / ` +
+      t("attSumPeople").replace("{n}", s.people);
+    card.appendChild(meta);
+
+    cards.appendChild(card);
+  });
+
+  // ----- 明細テーブル -----
+  const root = document.getElementById("attSumList");
+  root.innerHTML = "";
+  if (!attSumState.rows.length) {
+    const div = document.createElement("div");
+    div.className = "tx-empty";
+    div.textContent = t("attSumEmpty");
+    root.appendChild(div);
+    return;
+  }
+
+  const headers = [
+    { label: t("colStore"), className: "tx-col-sticky" },
+    { label: t("colEmployee") },
+    { label: t("positionLabel") },
+    { label: t("colWorkDays"), className: "tx-num" },
+    { label: t("colWorkHours"), className: "tx-num" },
+    { label: t("colRate"), className: "tx-num" },
+    { label: t("colLaborCost"), className: "tx-num" },
+  ];
+
+  const rows = attSumState.rows.map((r) => {
+    const nameCell = document.createElement("span");
+    nameCell.textContent = r.name;
+    if (r.isAway) {
+      // 所属店舗以外での勤務が一目で分かるようにする
+      const badge = txTag(t("awayBadge"), "tx-card-tag-unpaid");
+      badge.title = r.homeStore;
+      nameCell.appendChild(document.createTextNode(" "));
+      nameCell.appendChild(badge);
+    }
+    const rateLabel = `${fmtVnd(r.rate)} / ` +
+      t(r.rateType === "daily" ? "rateTypeDaily" : "rateTypeHourly");
+    return [
+      txCell(r.store || "—", { className: "tx-col-sticky" }),
+      txCell(nameCell),
+      txCell(t("position" + (r.role || "").charAt(0).toUpperCase() + (r.role || "").slice(1)) ||
+             r.role || ""),
+      txCell(r.days, { className: "tx-num" }),
+      txCell(fmtHours(r.hours), { className: "tx-num" }),
+      txCell(rateLabel, { className: "tx-num" }),
+      txCell(fmtVnd(r.cost), { className: "tx-num" }),
+    ];
+  });
+
+  // 合計行
+  const tot = attSumState.totals;
+  rows.push([
+    txCell(t("attSumTotal"), { className: "tx-col-sticky" }),
+    txCell(""),
+    txCell(""),
+    txCell(tot.days, { className: "tx-num" }),
+    txCell(fmtHours(tot.hours), { className: "tx-num" }),
+    txCell(""),
+    txCell(fmtVnd(tot.cost), { className: "tx-num" }),
+  ]);
+
+  const table = buildTxTable(headers, rows);
+  const lastRow = table.querySelector("tbody tr:last-child");
+  if (lastRow) lastRow.className = "att-sum-total-row";
+  root.appendChild(table);
+}
+
+// 給与計算用のCSV。金額は桁区切り無しの数値で出すのでそのまま集計できる。
+document.getElementById("attSumExportBtn").addEventListener("click", () => {
+  if (!attSumState.rows.length) {
+    showToast(t("msgCsvEmpty"), "error");
+    return;
+  }
+  const header = [
+    t("colStore"), t("colEmployee"), t("positionLabel"), "所属店舗",
+    t("colWorkDays"), t("colWorkHours"), t("colRate"), "単価種別", t("colLaborCost"),
+  ];
+  const lines = [header.map(csvEscape).join(",")];
+  attSumState.rows.forEach((r) => {
+    lines.push([
+      r.store || "",
+      r.name,
+      r.role || "",
+      r.homeStore || "",
+      r.days,
+      // 時間は小数(8.5)で出す。表示は 8h30m だが集計しやすさを優先。
+      Math.round(r.hours * 100) / 100,
+      r.rate,
+      r.rateType === "daily" ? t("rateTypeDaily") : t("rateTypeHourly"),
+      r.cost,
+    ].map(csvEscape).join(","));
+  });
+  const tot = attSumState.totals;
+  lines.push(["", "", "", "", tot.days, Math.round(tot.hours * 100) / 100, "", "", tot.cost]
+    .map(csvEscape).join(","));
+
+  const ym = `${attSumState.year}-${String(attSumState.month).padStart(2, "0")}`;
+  downloadCsv(
+    `cham-cong_${csvSlug(attSumState.store)}_${ym}.csv`,
+    "\uFEFF" + lines.join("\r\n") + "\r\n"
+  );
+  showToast(t("msgCsvExported").replace("{n}", attSumState.rows.length), "success");
+});
 
 // ============================================================
 // Master data: stores + vendors
@@ -4667,6 +4965,59 @@ document.getElementById("stkManualForm").addEventListener("submit", async (e) =>
 // ============================================================
 let attCalState = { userId: "", year: null, month: null, byDate: {} };
 let attDayModalDate = "";
+// 勤怠管理画面の店舗フィルタ (空 = 全店舗)
+let attMngStoreFilterValue = "";
+
+document.getElementById("attMngStoreFilter").addEventListener("change", (e) => {
+  attMngStoreFilterValue = e.target.value;
+  if (attCalState.userId) loadAttendanceMonth();
+});
+
+// 退勤忘れの検出結果をバナーで出す。放置すると人件費が過大になるので
+// 勤怠管理画面を開くたびに確認する。
+async function refreshUnclosedBanner() {
+  const box = document.getElementById("attUnclosedBanner");
+  const r = await api("listUnclosedPunches", {});
+  const items = (r && r.success && r.items) || [];
+  box.innerHTML = "";
+  if (!items.length) {
+    box.classList.add("hidden");
+    return;
+  }
+  box.classList.remove("hidden");
+
+  const title = document.createElement("div");
+  title.className = "att-unclosed-title";
+  title.textContent = t("attUnclosedTitle");
+  box.appendChild(title);
+
+  items.forEach((it) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "att-unclosed-row";
+    row.textContent = t("attUnclosedRow")
+      .replace("{name}", it.name)
+      .replace("{store}", it.store || "—")
+      .replace("{at}", `${fmtDate(it.clockInDate)} ${formatTime(it.clockInAt)}`)
+      .replace("{hours}", it.elapsedHours);
+    // クリックでその人・その日の打刻修正へ直行できるようにする
+    row.addEventListener("click", () => {
+      attCalState.userId = it.userId;
+      document.getElementById("attMngUserFilter").value = it.userId;
+      const [y, m] = it.clockInDate.split("-").map(Number);
+      attCalState.year = y;
+      attCalState.month = m;
+      updateAttMonthLabel();
+      loadAttendanceMonth().then(() => openAttDayModal(it.clockInDate));
+    });
+    box.appendChild(row);
+  });
+
+  const hint = document.createElement("div");
+  hint.className = "att-unclosed-hint";
+  hint.textContent = t("attUnclosedHint");
+  box.appendChild(hint);
+}
 
 function enterAttendanceManageScreen() {
   // ユーザーピッカー初期化(プレースホルダーのみ、必須選択)
@@ -4687,6 +5038,8 @@ function enterAttendanceManageScreen() {
     attCalState.month = now.getMonth() + 1;
   }
   updateAttMonthLabel();
+  refreshStorePickerOptions();
+  refreshUnclosedBanner();
   if (attCalState.userId) loadAttendanceMonth();
   else renderAttendanceCalendarEmpty();
 }
@@ -4738,6 +5091,7 @@ async function loadAttendanceMonth() {
   const dateTo   = `${y}-${String(m).padStart(2, "0")}-${String(last).padStart(2, "0")}`;
   const r = await api("listAttendance", {
     userId: attCalState.userId,
+    store: attMngStoreFilterValue,
     dateFrom, dateTo,
   });
   attCalState.byDate = {};
@@ -4964,6 +5318,14 @@ function renderAttDayPunches() {
     badge.textContent = t(typeLabels[rec.type] || rec.type);
     info.appendChild(badge);
 
+    // どの店舗で打刻したかを出す (応援勤務の確認に使う)
+    if (rec.store) {
+      const st = document.createElement('span');
+      st.className = 'att-day-punch-store';
+      st.textContent = rec.store;
+      info.appendChild(st);
+    }
+
     // 個人選択モード固定なので名前は表示しない
 
     const actions = document.createElement("div");
@@ -5016,6 +5378,8 @@ function openAttEditModal(rec, defaultDate) {
     sel.appendChild(opt);
   });
 
+  refreshStorePickerOptions();
+
   const title = document.getElementById("attEditTitle");
   if (rec) {
     title.textContent = t("attEditTitle");
@@ -5024,6 +5388,7 @@ function openAttEditModal(rec, defaultDate) {
     document.getElementById("attEditDate").value = rec.date;
     document.getElementById("attEditTime").value = formatTime(rec.timestamp);
     document.getElementById("attEditType").value = rec.type;
+    document.getElementById("attEditStore").value = rec.store || "";
     document.getElementById("attEditDelete").style.display = "";
   } else {
     title.textContent = t("attAddTitle");
@@ -5035,6 +5400,8 @@ function openAttEditModal(rec, defaultDate) {
     document.getElementById("attEditTime").value =
       `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
     document.getElementById("attEditType").value = "clock_in";
+    // 追加時は勤怠管理画面で絞り込んでいる店舗を既定にする
+    document.getElementById("attEditStore").value = attMngStoreFilterValue || "";
     document.getElementById("attEditDelete").style.display = "none";
   }
   document.getElementById("attEditModal").classList.remove("hidden");
@@ -5059,7 +5426,8 @@ document.getElementById("attEditForm").addEventListener("submit", async (e) => {
     showToast(t("msgRequiredFields"), "error");
     return;
   }
-  const payload = { userId, date, time, type };
+  const store = document.getElementById("attEditStore").value;
+  const payload = { userId, date, time, type, store };
   let r;
   if (id) {
     payload.id = id;
@@ -5115,3 +5483,5 @@ clearAttendanceUI();
 
 loadUsers();
 loadPatterns();
+// 打刻・シフト登録の店舗セレクタを埋める (店舗マスタは全画面で共有)
+loadKioskStores();

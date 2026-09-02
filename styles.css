@@ -2971,3 +2971,100 @@ main:has(#dashboardKpiScreen.active) {
 main:has(#transactionScreen.active) {
   max-width: 1600px;
 }
+
+/* ============================================================
+ * 多店舗対応: 退勤忘れ警告 / 勤怠集計
+ * ============================================================ */
+
+/* 勤怠管理画面の上部に出る退勤忘れバナー */
+.att-unclosed-banner {
+  border: 1px solid #fca5a5;
+  background: #fef2f2;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+
+.att-unclosed-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #991b1b;
+  margin-bottom: 8px;
+}
+
+/* 1件ごとに押せる = その人・その日の修正画面へ飛べる */
+.att-unclosed-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: #fff;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text);
+  cursor: pointer;
+}
+.att-unclosed-row:hover { border-color: var(--danger); background: #fff1f2; }
+
+.att-unclosed-hint {
+  font-size: 12px;
+  color: #991b1b;
+  margin-top: 4px;
+}
+
+/* 打刻詳細モーダルに出す店舗名 */
+.att-day-punch-store {
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--bg);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+/* 勤怠集計: 店舗別サマリカード */
+.att-sum-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  margin: 14px 0 18px;
+}
+
+.att-sum-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: #fff;
+}
+
+.att-sum-card-store {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.att-sum-card-cost {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.att-sum-card-meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+/* 明細テーブルの合計行 */
+.att-sum-total-row td {
+  font-weight: 700;
+  background: var(--bg);
+}
+.att-sum-total-row td.tx-col-sticky { background: var(--bg); }

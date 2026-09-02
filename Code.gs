@@ -38,8 +38,15 @@ var LOCATIONS_SHEET = "Locations";
 var INVENTORY_ITEMS_SHEET = "InventoryItems";
 var STOCKTAKES_SHEET = "Stocktakes";
 
+// store = 打刻した店舗。所属店舗ではなく「実際に働いた店舗」を持つので、
+// 応援勤務もその店舗の人件費として集計される。
+// 列追加前に登録された行は空欄で、集計時はユーザーの所属店舗にフォールバックする。
 var ATTENDANCE_COLUMNS = [
-  "id", "userId", "type", "timestamp", "date", "name", "role"
+  "id", "userId", "type", "timestamp", "date", "name", "role", "store"
+];
+
+var SHIFT_COLUMNS = [
+  "id", "userId", "userName", "date", "startTime", "endTime", "note", "createdAt", "store"
 ];
 
 var DAILY_SALES_COLUMNS = [
@@ -135,6 +142,12 @@ function doPost(e) {
         break;
       case "updateAttendance":
         result = updateAttendance(body);
+        break;
+      case "getAttendanceSummary":
+        result = getAttendanceSummary(body);
+        break;
+      case "listUnclosedPunches":
+        result = listUnclosedPunches(body);
         break;
       case "deleteAttendance":
         result = deleteAttendance(body);
@@ -308,7 +321,7 @@ function getSheet(name) {
     } else if (name === ATT_SHEET) {
       sheet.appendRow(ATTENDANCE_COLUMNS);
     } else if (name === SHIFTS_SHEET) {
-      sheet.appendRow(["id", "userId", "userName", "date", "startTime", "endTime", "note", "createdAt"]);
+      sheet.appendRow(SHIFT_COLUMNS);
     } else if (name === PATTERNS_SHEET) {
       sheet.appendRow(["id", "name", "startTime", "endTime", "color"]);
     } else if (name === PURCHASES_SHEET) {
@@ -379,6 +392,7 @@ function getSheet(name) {
     ensureUserColumns(sheet);
   }
   if (name === SHIFTS_SHEET) {
+    ensureColumns(sheet, SHIFT_COLUMNS);
     healShiftDates(sheet);
   }
   if (name === ATT_SHEET) {
@@ -921,14 +935,23 @@ function recordAttendance(body) {
         role = String(user.role || "");
       }
     }
+    // 打刻店舗。クライアントが送ってこなければ所属店舗にフォールバックする。
+    var store = (body.store || "").toString().trim();
+    if (!store) {
+      var u2 = findUserById(userId);
+      if (u2) store = String(u2.store || "").trim();
+    }
     var newId = uuid();
     var newTs = nowIso();
     var newDate = todayStr();
-    appendTextRow(sheet, [newId, userId, type, newTs, newDate, name, role]);
+    appendTextRow(sheet, [newId, userId, type, newTs, newDate, name, role, store]);
 
     // Simulate the new event in memory instead of re-reading the whole sheet.
     // This roughly halves the per-punch latency.
-    var newEvent = { id: newId, userId: userId, type: type, timestamp: newTs, date: newDate };
+    var newEvent = {
+      id: newId, userId: userId, type: type,
+      timestamp: newTs, date: newDate, store: store,
+    };
     var refreshed;
     if (type === "clock_in" && status === "finished") {
       // 退勤後の新シフト開始 → セッションはこの新イベントだけにリセット
@@ -965,6 +988,7 @@ function stripRow(r) {
     type: r.type,
     timestamp: normalizeTimestamp(r.timestamp),
     date: normalizeDate(r.date),
+    store: String(r.store || ""),
   };
 }
 
@@ -995,9 +1019,11 @@ function listAttendance(body) {
   // Read recent rows for performance — covers most editing use cases.
   // If editing very old records is required, increase this number.
   var rows = getRecentRows(sheet, 3000);
+  var store = (body.store || "").toString();
   var filtered = rows.filter(function (r) {
     var d = normalizeDate(r.date);
     if (userId && String(r.userId) !== userId) return false;
+    if (store && String(r.store || "") !== store) return false;
     if (dateFrom && d < dateFrom) return false;
     if (dateTo && d > dateTo) return false;
     return true;
@@ -1019,6 +1045,7 @@ function listAttendance(body) {
         type: String(r.type || ""),
         timestamp: normalizeTimestamp(r.timestamp),
         date: normalizeDate(r.date),
+        store: String(r.store || ""),
       };
     }),
   };
@@ -1042,8 +1069,11 @@ function addAttendance(body) {
     var user = findUserById(userId);
     var name = user ? String(user.name || "") : "";
     var role = user ? String(user.role || "") : "";
+    // 手動追加でも店舗を必ず持たせる (未指定なら所属店舗)。
+    var store = (body.store || "").toString().trim();
+    if (!store && user) store = String(user.store || "").trim();
     var newId = uuid();
-    appendTextRow(sheet, [newId, userId, type, ts, date, name, role]);
+    appendTextRow(sheet, [newId, userId, type, ts, date, name, role, store]);
     return { success: true, id: newId };
   } finally {
     lock.releaseLock();
@@ -1072,7 +1102,11 @@ function updateAttendance(body) {
         var user = findUserById(userId);
         var name = user ? String(user.name || "") : String(rows[i].name || "");
         var role = user ? String(user.role || "") : String(rows[i].role || "");
-        writeTextRow(sheet, rows[i]._rowIndex, [id, userId, type, ts, date, name, role]);
+        // 店舗が送られてこない場合は既存値を維持する (誤って空にしないため)。
+        var store = body.store !== undefined
+          ? String(body.store || "").trim()
+          : String(rows[i].store || "");
+        writeTextRow(sheet, rows[i]._rowIndex, [id, userId, type, ts, date, name, role, store]);
         return { success: true };
       }
     }
@@ -1113,6 +1147,8 @@ function registerShift(body) {
   lock.waitLock(5000);
   try {
     var sheet = getSheet(SHIFTS_SHEET);
+    // 勤務予定の店舗。未指定なら所属店舗を既定にする。
+    var store = (body.store || "").toString().trim() || String(user.store || "").trim();
     appendTextRow(sheet, [
       uuid(),
       userId,
@@ -1122,6 +1158,7 @@ function registerShift(body) {
       endTime,
       note,
       nowIso(),
+      store,
     ]);
     return { success: true };
   } finally {
@@ -1146,12 +1183,14 @@ function listShifts(body) {
     prefix = year + "-" + mm;
   }
 
+  var filterStore = (body.filterStore || "").toString();
   var filtered = rows.filter(function (r) {
     var d = normalizeDate(r.date);
     if (prefix && d.indexOf(prefix) !== 0) return false;
     if (dateFrom && d < dateFrom) return false;
     if (dateTo && d > dateTo) return false;
     if (filterUserId && String(r.userId) !== filterUserId) return false;
+    if (filterStore && String(r.store || "") !== filterStore) return false;
     return true;
   });
 
@@ -1175,6 +1214,7 @@ function listShifts(body) {
         startTime: normalizeTime(r.startTime),
         endTime: normalizeTime(r.endTime),
         note: r.note,
+        store: String(r.store || ""),
       };
     }),
   };
@@ -2364,117 +2404,261 @@ function getDashboard(body) {
   };
 }
 
-// Sum attendance-based labor cost for a given store + month.
-// Pairs each clock_in with the next clock_out for the same user (across day
-// boundaries — supports night shifts like 22:00 -> 06:00 next morning), then
-// subtracts any break intervals. The paid duration is attributed to the
-// month of the clock_in. An unpaired clock_in (=退勤忘れ) is silently
-// dropped — that user's hours for that day are NOT counted.
-function calcAttendanceLaborCost(store, year, month, dateFrom, dateTo) {
-  var targetYM = year + "-" + (month < 10 ? "0" + month : "" + month);
+// ----------------------------------------------------------------
+// 勤怠の集計エンジン (人件費 / 勤怠サマリの両方がこれを使う)
+// ----------------------------------------------------------------
+// 打刻をシフト単位にペアリングし、(従業員 × 店舗) ごとの労働時間・出勤日数・
+// 人件費を返す。ダッシュボードの人件費も勤怠サマリ画面もこの1関数を通すので、
+// 両者の数字が食い違うことはない。
+//
+// 仕様:
+//  - シフトは clock_in → 次の clock_out。間の break_start/break_end は控除。
+//  - 深夜跨ぎ (22:00→翌06:00) に対応するため、月内で事前フィルタせず全件を読む。
+//  - 対応する clock_out が無い clock_in (退勤忘れ) は労働時間として計上しない。
+//    ただし「出勤した日」としては数える (日給制の判定に使うため)。
+//  - シフトは【出勤打刻をした店舗】に計上する。応援先の端末で出勤すれば、
+//    その店舗の人件費になる。
+//  - store 列を追加する前の古い行は空欄なので、その従業員の所属店舗として扱う。
+//  - 日給制 (dailyRate > 0) は出勤日ごとに1日分。同じ日に複数店舗で働いた場合は
+//    その日の最初の出勤打刻の店舗にだけ1日分を計上する (二重計上を防ぐ)。
+//  - 労働時間は日給制・時給制とも実打刻から算出する。
+function buildAttendanceBreakdown(year, month, dateFrom, dateTo) {
   var tz = getSpreadsheetTz();
-  // If a date range was passed in, restrict pair attribution to it.
-  // Otherwise fall back to "any shift whose clock_in is in this month".
+  var targetYM = year + "-" + (month < 10 ? "0" + month : "" + month);
+  // 期間が渡されればその期間で、なければ「clock_in がその月に入るシフト」で絞る。
   var hasRange = /^\d{4}-\d{2}-\d{2}$/.test(String(dateFrom || "")) &&
                  /^\d{4}-\d{2}-\d{2}$/.test(String(dateTo || ""));
+  function inScope(dateStr) {
+    return hasRange
+      ? (dateStr >= dateFrom && dateStr <= dateTo)
+      : (dateStr.substring(0, 7) === targetYM);
+  }
 
-  // Build a map of store-belonging users with their role + rates.
-  // - role=employee with dailyRate>0 → 日給制(出勤日数 × dailyRate)
-  // - その他 (主に parttime) → 時給制(労働時間 × hourlyRate)
-  var userRows = getAllRows(getSheet(USERS_SHEET));
   var userMap = {};
-  userRows.forEach(function (u) {
-    if (String(u.store || "").trim() === store) {
-      userMap[String(u.id)] = {
-        name: u.name,
-        role: String(u.role || ""),
-        hourlyRate: _toNum(u.hourlyRate),
-        dailyRate: _toNum(u.dailyRate),
-      };
-    }
+  getAllRows(getSheet(USERS_SHEET)).forEach(function (u) {
+    userMap[String(u.id)] = {
+      name: String(u.name || ""),
+      role: String(u.role || ""),
+      homeStore: String(u.store || "").trim(),
+      hourlyRate: _toNum(u.hourlyRate),
+      dailyRate: _toNum(u.dailyRate),
+    };
   });
 
-  // Collect ALL attendance events for those users (no per-month pre-filter —
-  // a night shift's clock_in and clock_out might fall on different months).
-  var attRows = getAllRows(getSheet(ATT_SHEET));
   var byUser = {};
-  attRows.forEach(function (r) {
+  getAllRows(getSheet(ATT_SHEET)).forEach(function (r) {
     var uid = String(r.userId);
     if (!userMap[uid]) return;
     var ts = new Date(normalizeTimestamp(r.timestamp));
     if (isNaN(ts.getTime())) return;
     if (!byUser[uid]) byUser[uid] = [];
-    byUser[uid].push({ type: String(r.type), ts: ts });
+    byUser[uid].push({
+      type: String(r.type),
+      ts: ts,
+      store: String(r.store || "").trim(),
+    });
   });
 
-  var totalCost = 0;
-  var totalMinutes = 0;
+  var acc = {};
+  function bucket(uid, store) {
+    var key = uid + " " + store;
+    if (!acc[key]) {
+      var u = userMap[uid];
+      acc[key] = {
+        userId: uid,
+        name: u.name,
+        role: u.role,
+        homeStore: u.homeStore,
+        store: store,
+        isAway: !!store && !!u.homeStore && store !== u.homeStore,
+        days: 0,
+        minutes: 0,
+        cost: 0,
+        rateType: u.dailyRate > 0 ? "daily" : "hourly",
+        rate: u.dailyRate > 0 ? u.dailyRate : u.hourlyRate,
+      };
+    }
+    return acc[key];
+  }
+
   Object.keys(byUser).forEach(function (uid) {
     var u = userMap[uid];
     var events = byUser[uid].sort(function (a, b) { return a.ts - b.ts; });
-
-    // 日給制: dailyRate > 0 なら役職に関係なく日給ベースで計算する。
-    //         (admin で月給制の従業員も含めて扱えるようにシンプル化)
-    //         出勤日数(clock_in が発生した日)を数えて dailyRate を掛ける。
-    //         労働時間は参考値として 8h/日 で計上。
     var isDaily = u.dailyRate > 0;
-    if (isDaily) {
-      var workDays = {};
-      for (var i = 0; i < events.length; i++) {
-        var e = events[i];
-        if (e.type !== "clock_in") continue;
-        var dateStr = Utilities.formatDate(e.ts, tz, "yyyy-MM-dd");
-        var inYM = dateStr.substring(0, 7);
-        var attribute = hasRange
-          ? (dateStr >= dateFrom && dateStr <= dateTo)
-          : (inYM === targetYM);
-        if (attribute) workDays[dateStr] = true;
-      }
-      var dayCount = Object.keys(workDays).length;
-      totalCost += dayCount * u.dailyRate;
-      totalMinutes += dayCount * 8 * 60; // 8h/日 換算で参考値
-      return;
-    }
+    var dayStore = {}; // 出勤日 -> その日最初の出勤打刻の店舗
 
-    // 時給制: 既存ロジック(clock_in と clock_out をペアリングし、休憩を控除)
-    var rate = u.hourlyRate;
-    var clockIn = null;
-    var breakStart = null;
-    var breakTotal = 0;
-    for (var j = 0; j < events.length; j++) {
-      var ev = events[j];
+    var clockIn = null, clockInStore = "", breakStart = null, breakTotal = 0;
+    for (var i = 0; i < events.length; i++) {
+      var ev = events[i];
       if (ev.type === "clock_in") {
         clockIn = ev.ts;
+        clockInStore = ev.store || u.homeStore;
         breakStart = null;
         breakTotal = 0;
+        var dstr = Utilities.formatDate(ev.ts, tz, "yyyy-MM-dd");
+        if (inScope(dstr) && dayStore[dstr] === undefined) dayStore[dstr] = clockInStore;
       } else if (ev.type === "break_start" && clockIn) {
         breakStart = ev.ts;
       } else if (ev.type === "break_end" && breakStart) {
         breakTotal += (ev.ts - breakStart);
         breakStart = null;
       } else if (ev.type === "clock_out" && clockIn) {
-        var inDate2 = Utilities.formatDate(clockIn, tz, "yyyy-MM-dd");
-        var inYM2 = inDate2.substring(0, 7);
-        var attribute2 = hasRange
-          ? (inDate2 >= dateFrom && inDate2 <= dateTo)
-          : (inYM2 === targetYM);
-        if (attribute2) {
+        var inDate = Utilities.formatDate(clockIn, tz, "yyyy-MM-dd");
+        if (inScope(inDate)) {
           var minutes = ((ev.ts - clockIn) - breakTotal) / 60000;
           if (minutes < 0) minutes = 0;
-          totalMinutes += minutes;
-          totalCost += (minutes / 60) * rate;
+          var b = bucket(uid, clockInStore);
+          b.minutes += minutes;
+          if (!isDaily) b.cost += (minutes / 60) * u.hourlyRate;
         }
-        clockIn = null;
-        breakStart = null;
-        breakTotal = 0;
+        clockIn = null; clockInStore = ""; breakStart = null; breakTotal = 0;
       }
     }
+
+    Object.keys(dayStore).forEach(function (d) {
+      var b = bucket(uid, dayStore[d]);
+      b.days += 1;
+      if (isDaily) b.cost += u.dailyRate;
+    });
+  });
+
+  var rows = Object.keys(acc).map(function (k) {
+    var r = acc[k];
+    r.hours = r.minutes / 60;
+    r.cost = Math.round(r.cost);
+    return r;
+  });
+  rows.sort(function (a, b) {
+    if (a.store !== b.store) return a.store < b.store ? -1 : 1;
+    return String(a.name).localeCompare(String(b.name));
+  });
+  return rows;
+}
+
+// Sum attendance-based labor cost for a given store + month.
+// 打刻された店舗で集計するので、他店からの応援分もこの店舗に計上され、
+// 逆にこの店舗の所属者が他店で働いた分は計上されない。
+function calcAttendanceLaborCost(store, year, month, dateFrom, dateTo) {
+  var rows = buildAttendanceBreakdown(year, month, dateFrom, dateTo);
+  var cost = 0, minutes = 0;
+  rows.forEach(function (r) {
+    if (r.store !== store) return;
+    cost += r.cost;
+    minutes += r.minutes;
+  });
+  return { cost: Math.round(cost), hours: minutes / 60 };
+}
+
+// 従業員別 × 店舗別の月次勤怠サマリ (給与計算・店舗間按分の根拠)。
+// body = { year, month, store?, dateFrom?, dateTo? }
+function getAttendanceSummary(body) {
+  var year = parseInt(body.year, 10);
+  var month = parseInt(body.month, 10);
+  var dateFrom = (body.dateFrom || "").toString();
+  var dateTo = (body.dateTo || "").toString();
+  var storeFilter = (body.store || "").toString();
+  if (!year || !month) return { success: false, message: "Missing year/month" };
+
+  var rows = buildAttendanceBreakdown(year, month, dateFrom, dateTo);
+  if (storeFilter) {
+    rows = rows.filter(function (r) { return r.store === storeFilter; });
+  }
+  // 実績が全く無い行 (0時間0日) は表に出しても意味がないので落とす
+  rows = rows.filter(function (r) { return r.days > 0 || r.minutes > 0 || r.cost > 0; });
+
+  var totalCost = 0, totalMinutes = 0, totalDays = 0;
+  var byStore = {};
+  rows.forEach(function (r) {
+    totalCost += r.cost;
+    totalMinutes += r.minutes;
+    totalDays += r.days;
+    if (!byStore[r.store]) byStore[r.store] = { store: r.store, cost: 0, hours: 0, days: 0, people: 0 };
+    byStore[r.store].cost += r.cost;
+    byStore[r.store].hours += r.hours;
+    byStore[r.store].days += r.days;
+    byStore[r.store].people += 1;
   });
 
   return {
-    cost: Math.round(totalCost),
-    hours: totalMinutes / 60,
+    success: true,
+    yearMonth: year + "-" + (month < 10 ? "0" + month : "" + month),
+    rows: rows.map(function (r) {
+      return {
+        userId: r.userId,
+        name: r.name,
+        role: r.role,
+        store: r.store,
+        homeStore: r.homeStore,
+        isAway: r.isAway,
+        days: r.days,
+        hours: r.hours,
+        cost: r.cost,
+        rateType: r.rateType,
+        rate: r.rate,
+      };
+    }),
+    byStore: Object.keys(byStore).sort().map(function (k) { return byStore[k]; }),
+    totals: { cost: totalCost, hours: totalMinutes / 60, days: totalDays },
   };
+}
+
+// 退勤忘れの検出。最後の打刻が clock_in / break_start / break_end のまま
+// (= 退勤していない) で、その出勤から minHours 時間以上経過している人を返す。
+// 放置すると退勤打刻時にその全時間が1シフトとして人件費に乗るため、早期に気付けるようにする。
+function listUnclosedPunches(body) {
+  var minHours = _toNum(body && body.minHours);
+  if (!minHours || minHours <= 0) minHours = 12;
+  var tz = getSpreadsheetTz();
+  var now = new Date();
+
+  var userMap = {};
+  getAllRows(getSheet(USERS_SHEET)).forEach(function (u) {
+    userMap[String(u.id)] = { name: String(u.name || ""), store: String(u.store || "").trim() };
+  });
+
+  // 直近分だけ見れば十分 (これより古い出勤打刻は実質放棄されたデータ)。
+  var rows = getRecentRows(getSheet(ATT_SHEET), 3000);
+  var byUser = {};
+  rows.forEach(function (r) {
+    var uid = String(r.userId);
+    if (!userMap[uid]) return;
+    var ts = new Date(normalizeTimestamp(r.timestamp));
+    if (isNaN(ts.getTime())) return;
+    if (!byUser[uid]) byUser[uid] = [];
+    byUser[uid].push({ type: String(r.type), ts: ts, store: String(r.store || "").trim() });
+  });
+
+  var open = [];
+  Object.keys(byUser).forEach(function (uid) {
+    var events = byUser[uid].sort(function (a, b) { return a.ts - b.ts; });
+    // 最後の clock_out より後に残っているイベント = 進行中のセッション
+    var startIdx = 0;
+    for (var i = events.length - 1; i >= 0; i--) {
+      if (events[i].type === "clock_out") { startIdx = i + 1; break; }
+    }
+    var ongoing = events.slice(startIdx);
+    if (!ongoing.length) return;
+    var clockIn = null;
+    for (var j = 0; j < ongoing.length; j++) {
+      if (ongoing[j].type === "clock_in") { clockIn = ongoing[j]; break; }
+    }
+    if (!clockIn) return;
+    var elapsedHours = (now - clockIn.ts) / 3600000;
+    if (elapsedHours < minHours) return;
+    var last = ongoing[ongoing.length - 1];
+    open.push({
+      userId: uid,
+      name: userMap[uid].name,
+      store: clockIn.store || userMap[uid].store,
+      clockInAt: Utilities.formatDate(clockIn.ts, tz, "yyyy-MM-dd'T'HH:mm:ssXXX"),
+      clockInDate: Utilities.formatDate(clockIn.ts, tz, "yyyy-MM-dd"),
+      elapsedHours: Math.round(elapsedHours * 10) / 10,
+      lastType: last.type,
+    });
+  });
+
+  open.sort(function (a, b) { return b.elapsedHours - a.elapsedHours; });
+  return { success: true, minHours: minHours, items: open };
 }
 
 // Auto-add a name to master if it's not already registered. Called from

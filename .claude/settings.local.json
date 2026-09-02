@@ -14,7 +14,9 @@
       "Bash(node test_backend.js)",
       "Bash(node test_csv.js)",
       "Bash(node test_wiring.js)",
-      "Bash(node sample_csv.js)"
+      "Bash(node sample_csv.js)",
+      "Bash(cp Code.gs \"C:/Users/stn12/AppData/Local/Temp/claude/c--Users-stn12-Desktop-Vietnam-pj/66e02e98-34ce-407b-b9e1-fdc29e57474d/scratchpad/Code.check.js\")",
+      "Bash(node --check \"C:/Users/stn12/AppData/Local/Temp/claude/c--Users-stn12-Desktop-Vietnam-pj/66e02e98-34ce-407b-b9e1-fdc29e57474d/scratchpad/Code.check.js\")"
     ]
   }
 }
