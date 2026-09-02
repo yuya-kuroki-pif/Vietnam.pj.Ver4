@@ -1383,8 +1383,10 @@ form select:focus {
 .tx-filters {
   display: grid;
   /* Stacked on phones — each filter gets the full card width so native
-     date / month inputs always fit. Multi-column kicks in at ≥900px. */
-  grid-template-columns: 1fr;
+     date / month inputs always fit. Multi-column kicks in at ≥900px.
+     minmax(0,1fr): iOS の date/month 入力は内在幅が大きく、auto だと
+     列がカード外まで膨張するため。 */
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   min-width: 0;
 }
@@ -3472,4 +3474,28 @@ td.sg-today, th.sg-today { background: #fefce8 !important; }
   }
   .dash-card-value-wrap { align-items: flex-start; }
   .dash-card-sub { white-space: normal; }
+}
+
+
+/* ── iOS Safari: date / month / time 入力のはみ出し対策 ──
+   iOS は UA 既定の内在幅・inline-flex 表示を持ち、グリッドやモーダル内で
+   親要素からはみ出すことがある。appearance を外して通常のテキスト
+   フィールドとして幅制御に従わせる (タップ時のピッカーは従来どおり)。 */
+input[type="date"],
+input[type="month"],
+input[type="time"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: 42px;
+}
+
+/* appearance を外すと iOS で中身が縦にずれることがあるため揃える */
+input[type="date"]::-webkit-date-and-time-value,
+input[type="month"]::-webkit-date-and-time-value,
+input[type="time"]::-webkit-date-and-time-value {
+  text-align: left;
+  margin: 0;
 }
