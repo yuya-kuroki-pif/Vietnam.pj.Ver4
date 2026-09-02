@@ -461,6 +461,7 @@ const I18N = {
     posAddBtn: "+ Thêm vị trí",
     sgBudgetPrompt: "Nhập ngân sách doanh thu của ngày (VND)",
     sgSelectStoreFirst: "Vui lòng chọn cửa hàng trước.",
+    sgPatternsBtn: "⚙ Mẫu ca",
   },
   ja: {
     appTitle: "勤怠システム",
@@ -879,6 +880,7 @@ const I18N = {
     posAddBtn: "+ ポジションを追加",
     sgBudgetPrompt: "その日の売上予算を入力してください (VND)",
     sgSelectStoreFirst: "先に店舗を選択してください。",
+    sgPatternsBtn: "⚙ シフトパターン",
   },
 };
 
@@ -1685,6 +1687,8 @@ async function saveSgPositions() {
 }
 
 document.getElementById("sgPositionsBtn").addEventListener("click", openSgPosModal);
+// シフトパターン (早番/遅番/夜勤) の編集は既存のパターンモーダルを開く
+document.getElementById("sgPatternsBtn").addEventListener("click", openPatternsModal);
 document.getElementById("sgPosAddBtn").addEventListener("click", () => {
   document.getElementById("sgPosList").appendChild(sgPosRowEl(null));
 });
@@ -2562,6 +2566,8 @@ document.getElementById("patternsSaveBtn").addEventListener("click", async () =>
       renderPatternStrip();
       renderCalendar();
     }
+    // シフト表の凡例・チップ色にも反映する
+    if (currentTab === "shiftGrid") await loadShiftGrid();
   } else {
     showToast(result.message || t("msgError"), "error");
   }
