@@ -382,12 +382,16 @@
         </div>
         <div class="dash-toolbar dash-date-range">
           <label class="dash-range-label" data-i18n="dashRangeLabel">期間</label>
-          <input type="date" id="dashDateFrom" class="tx-input dash-date-input" />
-          <span class="dash-range-sep">〜</span>
-          <input type="date" id="dashDateTo" class="tx-input dash-date-input" />
-          <button type="button" id="dashRangeToday" class="btn btn-ghost btn-sm" data-i18n="dashRangeToday">本日</button>
-          <button type="button" id="dashRangeYesterday" class="btn btn-ghost btn-sm" data-i18n="dashRangeYesterday">昨日</button>
-          <button type="button" id="dashRangeThisMonth" class="btn btn-ghost btn-sm" data-i18n="dashRangeThisMonth">今月</button>
+          <div class="dash-range-inputs">
+            <input type="date" id="dashDateFrom" class="tx-input dash-date-input" />
+            <span class="dash-range-sep">〜</span>
+            <input type="date" id="dashDateTo" class="tx-input dash-date-input" />
+          </div>
+          <div class="dash-range-presets">
+            <button type="button" id="dashRangeToday" class="btn btn-ghost btn-sm" data-i18n="dashRangeToday">本日</button>
+            <button type="button" id="dashRangeYesterday" class="btn btn-ghost btn-sm" data-i18n="dashRangeYesterday">昨日</button>
+            <button type="button" id="dashRangeThisMonth" class="btn btn-ghost btn-sm" data-i18n="dashRangeThisMonth">今月</button>
+          </div>
         </div>
 
         <div class="dash-actions">

@@ -13,7 +13,7 @@
 //   3. 古いキャッシュは activate 時に削除
 //   4. ユーザーは「ハードリロードや キャッシュ削除」をしなくても自然に最新版に切り替わる
 
-const CACHE_NAME = "kintai-v37";
+const CACHE_NAME = "kintai-v38";
 const STATIC_ASSETS = [
   "./",
   "./index.html",

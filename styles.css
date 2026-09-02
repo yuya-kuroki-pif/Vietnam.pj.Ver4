@@ -2758,6 +2758,21 @@ textarea:focus {
   margin-right: 4px;
 }
 
+/* 開始日〜終了日はひとかたまりで折り返す */
+.dash-range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.dash-range-presets {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
 .dash-date-input {
   flex: 1 1 120px;
   min-width: 100px;
@@ -2795,7 +2810,8 @@ textarea:focus {
 
 .dash-total-sales-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0,1fr): 長い金額 (nowrap) でタイルが画面外にはみ出すのを防ぐ */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   margin-top: 8px;
 }
@@ -3443,3 +3459,17 @@ td.sg-today, th.sg-today { background: #fefce8 !important; }
 }
 
 #sgPosModal .btn { margin-top: 8px; }
+
+
+/* ── 店舗ダッシュボード: スマホ幅の最適化 ── */
+@media (max-width: 480px) {
+  .dash-total-sales-grid { grid-template-columns: 1fr; gap: 8px; }
+  .dash-total-sales-value { font-size: 22px; }
+  .dash-card-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+  .dash-card-value-wrap { align-items: flex-start; }
+  .dash-card-sub { white-space: normal; }
+}
