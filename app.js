@@ -163,7 +163,7 @@ const I18N = {
     masterDeleteConfirm: "Xóa mục này?",
     menuDashboard: "Bảng điều khiển",
     dashTitle: "Bảng điều khiển cửa hàng",
-    dashInfoBanner: "Doanh thu bao gồm POS外売上, chi phí nhân công bao gồm その他人件費. Giá vốn bao gồm khoản mục \"Mua hàng (đồ ăn)\" và \"Mua hàng (đồ uống)\" của quỹ tiền mặt.",
+    dashInfoBanner: "Doanh thu bao gồm doanh thu ngoài POS, chi phí nhân công bao gồm chi phí nhân công khác. Giá vốn bao gồm khoản mục \"Mua hàng (đồ ăn)\" và \"Mua hàng (đồ uống)\" của quỹ tiền mặt.",
     dashSelectStore: "-- Chọn cửa hàng --",
     dashSelectFirst: "Vui lòng chọn cửa hàng và tháng.",
     enterDailySales: "+ Doanh số hằng ngày",
@@ -172,7 +172,7 @@ const I18N = {
     monthlyTargetModalTitle: "Mục tiêu tháng",
     foodSales: "Doanh số đồ ăn",
     drinkSales: "Doanh số đồ uống",
-    otherSales: "Doanh số khác (POS外)",
+    otherSales: "Doanh số khác (ngoài POS)",
     customers: "Số khách",
     totalSalesIncl: "Tổng doanh số (gồm thuế)",
     totalSalesExcl: "Tổng doanh số (chưa thuế)",
@@ -357,8 +357,8 @@ const I18N = {
     amountInclTax: "Số tiền (có thuế)",
     amountExclTax: "Tiền chưa thuế",
     txType: "Loại",
-    typeOut: "Chi (出金)",
-    typeIn: "Thu (入金)",
+    typeOut: "Chi (xuất quỹ)",
+    typeIn: "Thu (nhập quỹ)",
     taxCode: "Mã số thuế (MST)",
     note: "Ghi chú",
     date: "Ngày",
@@ -415,6 +415,31 @@ const I18N = {
     msgTxDeleted: "Đã xóa giao dịch.",
     msgRequiredFields: "Vui lòng nhập các trường bắt buộc.",
     txDeleteConfirm: "Xóa giao dịch này?",
+    colHomeStore: "Cửa hàng trực thuộc",
+    colRateType: "Loại đơn giá",
+    perDaySuffix: "/ngày",
+    currencyPerDay: "VND/ngày",
+    dashRangeDaysFmt: "({total} ngày / đã qua {elapsed} ngày)",
+    unitPeople: "khách",
+    unitDaysFmt: "{n} ngày",
+    chipIn: "Vào",
+    chipOut: "Ra",
+    chipBreakFmt: "Nghỉ {n}",
+    chipUnclosed: "⚠ Chưa ra",
+    dsReportTitle: "【Báo cáo doanh thu ngày】",
+    dsReportSalesSection: "▼ Doanh thu",
+    dsReportPaymentSection: "▼ Thanh toán",
+    dsReportOtherSection: "▼ Khác",
+    dsReportNoStore: "(chưa chọn)",
+    dsReportNoDate: "(chưa nhập)",
+    avgPerCustomerIncl: "Doanh thu TB/khách (gồm thuế)",
+    avgPerCustomerExcl: "Doanh thu TB/khách (chưa thuế)",
+    locNamePlaceholder: "Ví dụ: Kho, kệ đồ uống...",
+    unitPlaceholder: "cái / kg / PC",
+    editUserTitle: "Chỉnh sửa người dùng",
+    editBtn: "Sửa",
+    msgUserUpdated: "Đã cập nhật.",
+    noRateBanner: "⚠ Chưa cài đơn giá lương (chi phí nhân công = 0): {names}",
   },
   ja: {
     appTitle: "勤怠システム",
@@ -787,6 +812,31 @@ const I18N = {
     msgTxDeleted: "取引を削除しました。",
     msgRequiredFields: "必須項目を入力してください。",
     txDeleteConfirm: "この取引を削除しますか?",
+    colHomeStore: "所属店舗",
+    colRateType: "単価種別",
+    perDaySuffix: "/日",
+    currencyPerDay: "VND/日",
+    dashRangeDaysFmt: "({total}日間 / 経過{elapsed}日)",
+    unitPeople: "人",
+    unitDaysFmt: "{n}日",
+    chipIn: "出",
+    chipOut: "退",
+    chipBreakFmt: "休 {n}回",
+    chipUnclosed: "⚠ 退勤未",
+    dsReportTitle: "【日次売上報告】",
+    dsReportSalesSection: "▼ 売上",
+    dsReportPaymentSection: "▼ 支払内訳",
+    dsReportOtherSection: "▼ その他",
+    dsReportNoStore: "(未選択)",
+    dsReportNoDate: "(未入力)",
+    avgPerCustomerIncl: "客単価（税込）",
+    avgPerCustomerExcl: "客単価（税抜）",
+    locNamePlaceholder: "例: ストッカー, ドリンク棚...",
+    unitPlaceholder: "個 / kg / PC",
+    editUserTitle: "ユーザー編集",
+    editBtn: "編集",
+    msgUserUpdated: "更新しました。",
+    noRateBanner: "⚠ 単価未設定(人件費0円で計算中): {names}",
   },
 };
 
@@ -828,6 +878,14 @@ function applyLanguage() {
     el.textContent = t(key);
   });
 
+  // placeholder / title 属性も翻訳する
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
+    el.setAttribute("placeholder", t(el.getAttribute("data-i18n-placeholder")));
+  });
+  document.querySelectorAll("[data-i18n-title]").forEach((el) => {
+    el.setAttribute("title", t(el.getAttribute("data-i18n-title")));
+  });
+
   document.querySelectorAll(".lang-btn").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.lang === currentLang);
   });
@@ -848,6 +906,18 @@ function applyLanguage() {
   if (document.querySelector("#pettyList .tx-table")) {
     refreshVendorOptions();
     renderPettyList();
+  }
+  // ダッシュボード: 取得済みデータがあれば同じデータで描画し直す
+  if (dashLastData) {
+    renderDashboard(dashLastData);
+    renderDailySalesList(dashLastDailyItems);
+  }
+  // 勤怠集計 (テーブル・カードはJSで組み立てているため再描画が必要)
+  if (attSumState.totals) renderAttendanceSummary();
+  // 勤怠管理カレンダー (出/退/休チップと集計値)
+  if (attCalState.userId && attCalState.year !== null) {
+    renderAttendanceCalendar();
+    updateAttMonthSummary();
   }
 }
 
@@ -1089,6 +1159,8 @@ document.querySelectorAll(".drawer-item").forEach((item) => {
 });
 
 document.getElementById("cancelRegisterBtn").addEventListener("click", () => {
+  editingUserId = null;
+  setRegisterMode(false);
   document.getElementById("registerForm").reset();
   showScreen("masterScreen");
   setActiveDrawerItem("master");
@@ -1127,9 +1199,15 @@ document.getElementById("registerForm").addEventListener("submit", async (e) => 
     return;
   }
 
-  const result = await api("register", payload);
+  // editingUserId がセットされていれば既存ユーザーの更新、なければ新規登録
+  const wasEdit = !!editingUserId;
+  const result = wasEdit
+    ? await api("updateUser", { id: editingUserId, ...payload })
+    : await api("register", payload);
   if (result.success) {
-    showToast(t("msgRegisterOk"), "success");
+    showToast(t(wasEdit ? "msgUserUpdated" : "msgRegisterOk"), "success");
+    editingUserId = null;
+    setRegisterMode(false);
     document.getElementById("registerForm").reset();
     await loadUsers();
     showScreen("masterScreen");
@@ -2079,8 +2157,8 @@ let pettyType = "out"; // active type in petty modal
 //   ≥ 1,000,000      → "X.YM đ" / "XM đ" (e.g. "1.5M đ", "25M đ")
 function fmtVnd(n) {
   const v = Math.round(Number(n) || 0);
-  // 数値を省略せず "1.500.000 đ" のような完全表示にする(ベトナム式は "." 区切り)。
-  return v.toLocaleString("vi-VN") + " đ";
+  // 数値を省略せず "1.500.000 VND" のような完全表示にする(ベトナム式は "." 区切り)。
+  return v.toLocaleString("vi-VN") + " VND";
 }
 
 // Backward-compatible alias — older code paths still call fmtVndCompact.
@@ -2138,7 +2216,7 @@ function refreshStoreOptions() {
     if (cur && txStores.indexOf(cur) >= 0) {
       sel.value = cur;
     } else if (txStores.length > 0) {
-      sel.value = txStores[0];
+      sel.value = defaultStoreOf(txStores);
     }
   });
 }
@@ -2489,6 +2567,31 @@ function applyLanguageTo(root) {
   });
 }
 
+// ------------------------------------------------------------
+// 最後に選んだ店舗を記憶し、各画面の店舗フィルタの初期値にする。
+// 店舗マスタはアルファベット順のため、記憶が無いと「データの無い店舗」が
+// 初期選択になってしまう問題への対策。
+// ------------------------------------------------------------
+function getLastStore() {
+  try { return localStorage.getItem("lastStore") || ""; } catch (e) { return ""; }
+}
+function setLastStore(v) {
+  if (!v) return;
+  try { localStorage.setItem("lastStore", v); } catch (e) {}
+}
+// 店舗フィルタの変更を記憶する (各画面共通)
+["purchaseStoreFilter", "pettyStoreFilter", "dashStoreFilter", "stocktakeStoreFilter"]
+  .forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("change", (e) => setLastStore(e.target.value));
+  });
+
+// 候補リストから初期店舗を決める: 記憶があればそれ、無ければ先頭
+function defaultStoreOf(items) {
+  const last = getLastStore();
+  return last && items.indexOf(last) >= 0 ? last : (items[0] || "");
+}
+
 function fillSelectFromMaster(selectId, items, placeholderKey, opts) {
   const noPlaceholder = !!(opts && opts.noPlaceholder);
   const sel = document.getElementById(selectId);
@@ -2512,7 +2615,7 @@ function fillSelectFromMaster(selectId, items, placeholderKey, opts) {
   if (cur && items.indexOf(cur) >= 0) {
     sel.value = cur;
   } else if (noPlaceholder && items.length > 0) {
-    sel.value = items[0];
+    sel.value = defaultStoreOf(items);
   } else {
     sel.value = "";
   }
@@ -3260,7 +3363,8 @@ function renderAttendanceSummary() {
 
     const meta = document.createElement("div");
     meta.className = "att-sum-card-meta";
-    meta.textContent = `${fmtHours(s.hours)} / ${s.days}${t("colWorkDays")} / ` +
+    meta.textContent = `${fmtHours(s.hours)} / ` +
+      t("unitDaysFmt").replace("{n}", s.days) + " / " +
       t("attSumPeople").replace("{n}", s.people);
     card.appendChild(meta);
 
@@ -3278,50 +3382,75 @@ function renderAttendanceSummary() {
     return;
   }
 
+  // 単価未設定 (時給も日給も0) の従業員は人件費が0円で計上されてしまうため、
+  // 気付けるよう警告バナーを出す。
+  const noRateNames = [...new Set(
+    attSumState.rows.filter((r) => !r.rate).map((r) => r.name)
+  )];
+  if (noRateNames.length) {
+    const warn = document.createElement("div");
+    warn.className = "att-norate-banner";
+    warn.textContent = t("noRateBanner").replace("{names}", noRateNames.join(", "));
+    root.appendChild(warn);
+  }
+
+  // 横スクロール無しで人件費まで見えるよう、4列に集約する。
+  // 役職・店舗・単価は従業員名の下のサブ行に出す (CSVには全列が出る)。
+  // 金額は数値のみ表示し、単位はヘッダーに出す (スマホ幅でも収まるように)
   const headers = [
-    { label: t("colStore"), className: "tx-col-sticky" },
     { label: t("colEmployee") },
-    { label: t("positionLabel") },
     { label: t("colWorkDays"), className: "tx-num" },
     { label: t("colWorkHours"), className: "tx-num" },
-    { label: t("colRate"), className: "tx-num" },
-    { label: t("colLaborCost"), className: "tx-num" },
+    { label: `${t("colLaborCost")} (VND)`, className: "tx-num" },
   ];
+  const fmtCost = (v) => Math.round(Number(v) || 0).toLocaleString("vi-VN");
+
+  const multiStore = new Set(attSumState.rows.map((r) => r.store)).size > 1;
 
   const rows = attSumState.rows.map((r) => {
-    const nameCell = document.createElement("span");
-    nameCell.textContent = r.name;
+    const nameCell = document.createElement("div");
+    nameCell.className = "att-sum-emp";
+
+    const nm = document.createElement("div");
+    nm.className = "att-sum-emp-name";
+    nm.textContent = r.name;
     if (r.isAway) {
       // 所属店舗以外での勤務が一目で分かるようにする
       const badge = txTag(t("awayBadge"), "tx-card-tag-unpaid");
       badge.title = r.homeStore;
-      nameCell.appendChild(document.createTextNode(" "));
-      nameCell.appendChild(badge);
+      nm.appendChild(document.createTextNode(" "));
+      nm.appendChild(badge);
     }
-    const rateLabel = `${fmtVnd(r.rate)} / ` +
+    nameCell.appendChild(nm);
+
+    const roleKey = "position" + (r.role || "").charAt(0).toUpperCase() + (r.role || "").slice(1);
+    const roleLbl = t(roleKey) !== roleKey ? t(roleKey) : (r.role || "");
+    const rateLabel = (r.rate ? "" : "⚠ ") + `${fmtVnd(r.rate)}/` +
       t(r.rateType === "daily" ? "rateTypeDaily" : "rateTypeHourly");
+    const subParts = [roleLbl];
+    // 複数店舗が混在するときだけ店舗名を出す (全行同一店舗なら冗長なので省く)
+    if (multiStore) subParts.push(r.store || "—");
+    subParts.push(rateLabel);
+    const sub = document.createElement("div");
+    sub.className = "att-sum-emp-sub";
+    sub.textContent = subParts.filter(Boolean).join(" · ");
+    nameCell.appendChild(sub);
+
     return [
-      txCell(r.store || "—", { className: "tx-col-sticky" }),
       txCell(nameCell),
-      txCell(t("position" + (r.role || "").charAt(0).toUpperCase() + (r.role || "").slice(1)) ||
-             r.role || ""),
       txCell(r.days, { className: "tx-num" }),
       txCell(fmtHours(r.hours), { className: "tx-num" }),
-      txCell(rateLabel, { className: "tx-num" }),
-      txCell(fmtVnd(r.cost), { className: "tx-num" }),
+      txCell(fmtCost(r.cost), { className: "tx-num" }),
     ];
   });
 
   // 合計行
   const tot = attSumState.totals;
   rows.push([
-    txCell(t("attSumTotal"), { className: "tx-col-sticky" }),
-    txCell(""),
-    txCell(""),
+    txCell(t("attSumTotal")),
     txCell(tot.days, { className: "tx-num" }),
     txCell(fmtHours(tot.hours), { className: "tx-num" }),
-    txCell(""),
-    txCell(fmtVnd(tot.cost), { className: "tx-num" }),
+    txCell(fmtCost(tot.cost), { className: "tx-num" }),
   ]);
 
   const table = buildTxTable(headers, rows);
@@ -3337,8 +3466,8 @@ document.getElementById("attSumExportBtn").addEventListener("click", () => {
     return;
   }
   const header = [
-    t("colStore"), t("colEmployee"), t("positionLabel"), "所属店舗",
-    t("colWorkDays"), t("colWorkHours"), t("colRate"), "単価種別", t("colLaborCost"),
+    t("colStore"), t("colEmployee"), t("positionLabel"), t("colHomeStore"),
+    t("colWorkDays"), t("colWorkHours"), t("colRate"), t("colRateType"), t("colLaborCost"),
   ];
   const lines = [header.map(csvEscape).join(",")];
   attSumState.rows.forEach((r) => {
@@ -3594,12 +3723,22 @@ function renderVendorMasterList(list) {
 }
 
 // ----- User master -----
-document.getElementById("newUserBtn").addEventListener("click", () => {
-  // Open the (existing) full user-registration screen as a sub-screen.
-  // After register / cancel, the form returns the user back to the master
-  // screen with the user tab active (see registerForm submit / cancel below).
-  showScreen("registerScreen");
-  loadStores().then(() => {
+// 編集中のユーザーID。null なら新規登録モード。
+let editingUserId = null;
+
+// 登録画面を「新規登録 / 編集」モードに切り替える (タイトルと送信ボタンの文言)。
+// data-i18n も差し替えるので、編集中に言語を切り替えても表示が保たれる。
+function setRegisterMode(editing) {
+  const title = document.getElementById("registerScreenTitle");
+  const btn = document.getElementById("registerSubmitBtn");
+  title.setAttribute("data-i18n", editing ? "editUserTitle" : "registerTitle");
+  btn.setAttribute("data-i18n", editing ? "saveBtn" : "registerBtn");
+  title.textContent = t(editing ? "editUserTitle" : "registerTitle");
+  btn.textContent = t(editing ? "saveBtn" : "registerBtn");
+}
+
+function fillRegStoreOptions() {
+  return loadStores().then(() => {
     const sel = document.getElementById("regStore");
     if (!sel) return;
     const cur = sel.value;
@@ -3611,7 +3750,53 @@ document.getElementById("newUserBtn").addEventListener("click", () => {
     });
     sel.value = cur;
   });
+}
+
+document.getElementById("newUserBtn").addEventListener("click", () => {
+  // Open the (existing) full user-registration screen as a sub-screen.
+  // After register / cancel, the form returns the user back to the master
+  // screen with the user tab active (see registerForm submit / cancel below).
+  editingUserId = null;
+  document.getElementById("registerForm").reset();
+  setRegisterMode(false);
+  showScreen("registerScreen");
+  fillRegStoreOptions();
 });
+
+// 既存ユーザーの編集: 全プロフィールを取得して登録フォームに流し込む
+async function openUserEdit(id) {
+  const r = await api("getUser", { id });
+  if (!r.success || !r.user) {
+    showToast(r.message || t("msgError"), "error");
+    return;
+  }
+  const u = r.user;
+  editingUserId = u.id;
+  document.getElementById("registerForm").reset();
+  setRegisterMode(true);
+  showScreen("registerScreen");
+  await fillRegStoreOptions();
+  const set = (elId, v) => {
+    const el = document.getElementById(elId);
+    if (el) el.value = v === null || v === undefined ? "" : v;
+  };
+  set("regName", u.name);
+  set("regRole", u.role || "employee");
+  set("regGender", u.gender);
+  set("regBirthDate", u.birthDate);
+  set("regIdNumber", u.idNumber);
+  set("regPhone", u.phone);
+  set("regEmail", u.email);
+  set("regAddress", u.address);
+  set("regEmergencyContact", u.emergencyContact);
+  set("regHireDate", u.hireDate);
+  set("regBankName", u.bankName);
+  set("regBankBranch", u.bankBranch);
+  set("regBankAccount", u.bankAccount);
+  set("regStore", u.store);
+  set("regHourlyRate", u.hourlyRate || "");
+  set("regDailyRate", u.dailyRate || "");
+}
 
 async function loadUserMaster() {
   const r = await api("listUsers");
@@ -3645,10 +3830,18 @@ function renderUserMasterList(list) {
       const lbl = t(k);
       appendMasterMeta(meta, t("positionLabel"), lbl !== k ? lbl : u.role);
     }
-    if (u.dailyRate) appendMasterMeta(meta, t("dailyRate"), fmtVnd(u.dailyRate) + "/日");
+    if (u.dailyRate) appendMasterMeta(meta, t("dailyRate"), fmtVnd(u.dailyRate) + t("perDaySuffix"));
     if (u.hourlyRate) appendMasterMeta(meta, t("hourlyRate"), fmtVnd(u.hourlyRate) + "/h");
     if (u.hireDate) appendMasterMeta(meta, t("hireDate"), fmtDate(u.hireDate));
     card.appendChild(meta);
+
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.className = "tx-card-edit";
+    edit.textContent = "✎";
+    edit.title = t("editBtn");
+    edit.addEventListener("click", () => openUserEdit(u.id));
+    card.appendChild(edit);
 
     const del = document.createElement("button");
     del.type = "button";
@@ -3677,6 +3870,9 @@ function renderUserMasterList(list) {
 let dashStore = "";
 let dashDateFrom = null; // "yyyy-MM-dd"
 let dashDateTo = null;   // "yyyy-MM-dd"
+// 言語切替時に再描画できるよう、最後に表示したデータを保持する
+let dashLastData = null;
+let dashLastDailyItems = [];
 
 function dashFmtDateInput(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -3790,11 +3986,15 @@ async function reloadDashboard() {
     api("getDashboard", params),
     api("listDailySales", params),
   ]);
-  if (dash && dash.success) renderDashboard(dash);
-  renderDailySalesList((dailyList && dailyList.items) || []);
+  dashLastData = (dash && dash.success) ? dash : null;
+  dashLastDailyItems = (dailyList && dailyList.items) || [];
+  if (dashLastData) renderDashboard(dashLastData);
+  renderDailySalesList(dashLastDailyItems);
 }
 
 function renderDashboardEmpty() {
+  dashLastData = null;
+  dashLastDailyItems = [];
   document.getElementById("dashContent").innerHTML =
     `<div class="dash-empty">${t("dashSelectFirst")}</div>`;
 }
@@ -3811,7 +4011,9 @@ function renderDashboard(d) {
       ? fmtDate(d.dateFrom)
       : `${fmtDate(d.dateFrom)} 〜 ${fmtDate(d.dateTo)}`;
     const dayInfo = (d.totalRangeDays && d.totalRangeDays > 0)
-      ? ` (${d.totalRangeDays}日間 / 経過${d.elapsedRangeDays}日)`
+      ? " " + t("dashRangeDaysFmt")
+          .replace("{total}", d.totalRangeDays)
+          .replace("{elapsed}", d.elapsedRangeDays)
       : "";
     banner.textContent = `${t("dashRangeLabel")}: ${rangeText}${dayInfo}`;
     root.appendChild(banner);
@@ -3876,7 +4078,7 @@ function renderDashboard(d) {
     </div>` : ""}
     <div class="dash-row">
       <span class="dash-row-label">${t("dashAvgPerCustomer")} / ${t("dashCustomers")}</span>
-      <span class="dash-row-value">${fmtVndCompact(d.sales.avgPerCustomer)} / ${d.sales.customers}人</span>
+      <span class="dash-row-value">${fmtVndCompact(d.sales.avgPerCustomer)} / ${d.sales.customers} ${t("unitPeople")}</span>
     </div>
   `;
   root.appendChild(salesCard);
@@ -4243,7 +4445,7 @@ function readDailySalesForm() {
 }
 
 function buildDailySalesReport(p) {
-  const yen = (v) => (Number(v) || 0).toLocaleString("ja-JP") + " đ";
+  // 金額はアプリ全体と同じ "1.500.000 VND" 形式 (fmtVnd) に揃える。
   const customers = Number(p.customers) || 0;
   // 客単価 = 各売上 ÷ 来店人数(0除算ガード)
   const inclBase = Number(p.totalSalesIncl) || 0;
@@ -4251,33 +4453,33 @@ function buildDailySalesReport(p) {
   const avgIncl = customers > 0 ? Math.round(inclBase / customers) : 0;
   const avgExcl = customers > 0 ? Math.round(exclBase / customers) : 0;
   const lines = [
-    "【日次売上報告】",
-    `店舗: ${p.store || "(未選択)"}`,
-    `日付: ${p.date || "(未入力)"}`,
+    t("dsReportTitle"),
+    `${t("colStore")}: ${p.store || t("dsReportNoStore")}`,
+    `${t("date")}: ${p.date || t("dsReportNoDate")}`,
     "",
-    "▼ 売上",
-    `売上合計（税込）: ${yen(p.totalSalesIncl)}`,
-    `売上合計（税抜）: ${yen(p.totalSalesExcl)}`,
-    `フード売上（税込）: ${yen(p.foodSalesIncl)}`,
-    `フード売上（税抜）: ${yen(p.foodSalesExcl)}`,
-    `ドリンク売上（税込）: ${yen(p.drinkSalesIncl)}`,
-    `ドリンク売上（税抜）: ${yen(p.drinkSalesExcl)}`,
+    t("dsReportSalesSection"),
+    `${t("totalSalesIncl")}: ${fmtVnd(p.totalSalesIncl)}`,
+    `${t("totalSalesExcl")}: ${fmtVnd(p.totalSalesExcl)}`,
+    `${t("foodSalesIncl")}: ${fmtVnd(p.foodSalesIncl)}`,
+    `${t("foodSalesExcl")}: ${fmtVnd(p.foodSalesExcl)}`,
+    `${t("drinkSalesIncl")}: ${fmtVnd(p.drinkSalesIncl)}`,
+    `${t("drinkSalesExcl")}: ${fmtVnd(p.drinkSalesExcl)}`,
     "",
-    "▼ 支払内訳",
-    `現金: ${yen(p.paymentCash)}`,
-    `QR: ${yen(p.paymentQr)}`,
-    `クレジットカード: ${yen(p.paymentCard)}`,
+    t("dsReportPaymentSection"),
+    `${t("paymentCash")}: ${fmtVnd(p.paymentCash)}`,
+    `${t("paymentQr")}: ${fmtVnd(p.paymentQr)}`,
+    `${t("paymentCard")}: ${fmtVnd(p.paymentCard)}`,
     "",
-    "▼ その他",
-    `割引金額: ${yen(p.discountAmount)}`,
-    `入金金額: ${yen(p.depositAmount)}`,
-    `小口使用金額: ${yen(p.pettyCashAmount)}`,
-    `ご来店人数: ${customers.toLocaleString("ja-JP")} 人`,
-    `客単価（税込）: ${yen(avgIncl)}`,
-    `客単価（税抜）: ${yen(avgExcl)}`,
+    t("dsReportOtherSection"),
+    `${t("discountAmount")}: ${fmtVnd(p.discountAmount)}`,
+    `${t("depositAmount")}: ${fmtVnd(p.depositAmount)}`,
+    `${t("pettyCashAmount")}: ${fmtVnd(p.pettyCashAmount)}`,
+    `${t("customers")}: ${customers.toLocaleString("vi-VN")} ${t("unitPeople")}`,
+    `${t("avgPerCustomerIncl")}: ${fmtVnd(avgIncl)}`,
+    `${t("avgPerCustomerExcl")}: ${fmtVnd(avgExcl)}`,
   ];
   if (p.note) {
-    lines.push("", `備考: ${p.note}`);
+    lines.push("", `${t("note")}: ${p.note}`);
   }
   return lines.join("\n");
 }
@@ -4471,8 +4673,8 @@ async function loadStocktakeList() {
     sel.value = cur;
     stkStore = cur;
   } else if (txStores.length > 0) {
-    sel.value = txStores[0];
-    stkStore = txStores[0];
+    sel.value = defaultStoreOf(txStores);
+    stkStore = sel.value;
   } else {
     stkStore = "";
   }
@@ -5052,9 +5254,18 @@ function renderAttendanceCalendarEmpty() {
 }
 
 function updateAttMonthLabel() {
-  document.getElementById("attMngMonthLabel").textContent =
-    `${attCalState.year}/${String(attCalState.month).padStart(2, "0")}`;
+  document.getElementById("attMngMonthInput").value =
+    `${attCalState.year}-${String(attCalState.month).padStart(2, "0")}`;
 }
+
+// 月入力で任意の月へ直接ジャンプできる («/» の月送りと併用)
+document.getElementById("attMngMonthInput").addEventListener("change", (e) => {
+  const v = e.target.value; // "yyyy-MM"
+  if (!/^\d{4}-\d{2}$/.test(v)) return;
+  attCalState.year = parseInt(v.slice(0, 4), 10);
+  attCalState.month = parseInt(v.slice(5, 7), 10);
+  if (attCalState.userId) loadAttendanceMonth();
+});
 
 document.getElementById("attMngUserFilter").addEventListener("change", (e) => {
   attCalState.userId = e.target.value;
@@ -5082,6 +5293,48 @@ document.getElementById("attMngThisMonthBtn").addEventListener("click", () => {
   attCalState.month = now.getMonth() + 1;
   updateAttMonthLabel();
   if (attCalState.userId) loadAttendanceMonth();
+});
+
+// 表示中の月の打刻データをCSV出力する。
+// ユーザー未選択なら全従業員分をまとめて出す (給与計算・監査用)。
+document.getElementById("attMngExportBtn").addEventListener("click", async () => {
+  const y = attCalState.year, m = attCalState.month;
+  const last = new Date(y, m, 0).getDate();
+  const dateFrom = `${y}-${String(m).padStart(2, "0")}-01`;
+  const dateTo = `${y}-${String(m).padStart(2, "0")}-${String(last).padStart(2, "0")}`;
+  const r = await api("listAttendance", {
+    userId: attCalState.userId,
+    store: attMngStoreFilterValue,
+    dateFrom, dateTo,
+  });
+  const records = (r && r.records) || [];
+  if (!records.length) {
+    showToast(t("msgCsvEmpty"), "error");
+    return;
+  }
+  records.sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)));
+  const typeKey = {
+    clock_in: "logClockIn", clock_out: "logClockOut",
+    break_start: "logBreakStart", break_end: "logBreakEnd",
+  };
+  const header = [
+    t("date"), t("colEmployee"), t("positionLabel"), t("colStore"),
+    t("attMngType"), t("attMngTime"),
+  ];
+  const lines = [header.map(csvEscape).join(",")];
+  records.forEach((rec) => {
+    lines.push([
+      rec.date,
+      rec.name,
+      rec.role,
+      rec.store,
+      t(typeKey[rec.type] || rec.type),
+      formatTime(rec.timestamp),
+    ].map(csvEscape).join(","));
+  });
+  const ym = `${y}-${String(m).padStart(2, "0")}`;
+  downloadCsv(`cham-cong-log_${ym}.csv`, "﻿" + lines.join("\r\n") + "\r\n");
+  showToast(t("msgCsvExported").replace("{n}", records.length), "success");
 });
 
 async function loadAttendanceMonth() {
@@ -5157,7 +5410,8 @@ function updateAttMonthSummary() {
   const mm = totalMinutes % 60;
   document.getElementById("attMngTotalHours").textContent =
     `${hh}h ${String(mm).padStart(2, "0")}m`;
-  document.getElementById("attMngTotalDays").textContent = `${workDays}日`;
+  document.getElementById("attMngTotalDays").textContent =
+    t("unitDaysFmt").replace("{n}", workDays);
 }
 
 function renderAttendanceCalendar() {
@@ -5223,28 +5477,34 @@ function renderAttendanceCalendar() {
         const ins  = punches.filter((p) => p.type === "clock_in");
         const outs = punches.filter((p) => p.type === "clock_out");
         const brks = punches.filter((p) => p.type === "break_start" || p.type === "break_end");
-        if (ins.length) {
+        // 接頭語 (出/Vào 等) は span にして、スマホ幅では CSS で隠す。
+        // チップの色 (緑=出勤 / 赤=退勤) で種別は判別できる。
+        const timeChip = (cls, prefix, time) => {
           const c = document.createElement("div");
-          c.className = "att-day-chip in";
-          c.textContent = "出 " + hhmm(ins[0].timestamp);
-          chips.appendChild(c);
+          c.className = "att-day-chip " + cls;
+          const p = document.createElement("span");
+          p.className = "chip-prefix";
+          p.textContent = prefix + " ";
+          c.appendChild(p);
+          c.appendChild(document.createTextNode(time));
+          return c;
+        };
+        if (ins.length) {
+          chips.appendChild(timeChip("in", t("chipIn"), hhmm(ins[0].timestamp)));
         }
         if (outs.length) {
-          const c = document.createElement("div");
-          c.className = "att-day-chip out";
-          c.textContent = "退 " + hhmm(outs[outs.length - 1].timestamp);
-          chips.appendChild(c);
+          chips.appendChild(timeChip("out", t("chipOut"), hhmm(outs[outs.length - 1].timestamp)));
         }
         if (brks.length) {
           const c = document.createElement("div");
           c.className = "att-day-chip brk";
-          c.textContent = `休 ${Math.floor(brks.length / 2)}回`;
+          c.textContent = t("chipBreakFmt").replace("{n}", Math.floor(brks.length / 2));
           chips.appendChild(c);
         }
         if (ins.length > outs.length) {
           const c = document.createElement("div");
           c.className = "att-day-chip warn";
-          c.textContent = "⚠ 退勤未";
+          c.textContent = t("chipUnclosed");
           chips.appendChild(c);
         }
         cell.appendChild(chips);

@@ -656,11 +656,14 @@ form select:focus {
 
 .cal-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  /* minmax(0,1fr): チップ文字列の最小幅で列が膨張して
+     ページ全体が横スクロールするのを防ぐ */
+  grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
 .cal-day {
   position: relative;
+  min-width: 0;
   min-height: 64px;
   border-right: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
@@ -1693,6 +1696,59 @@ form select:focus {
 
 .tx-card-delete:hover { background: #fee2e2; }
 
+/* マスタカードの編集ボタン (削除ボタンの左隣) */
+.tx-card-edit {
+  position: absolute;
+  top: 8px;
+  right: 44px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.tx-card-edit:hover { background: #dbeafe; }
+
+/* 勤怠集計: 明細の従業員セル (名前 + 役職/店舗/単価のサブ行) */
+/* 数値3列と併せて横スクロール無しで収まるよう、余白を詰めて
+   従業員列に幅を確保する */
+#attSumList .tx-table thead th,
+#attSumList .tx-table tbody td { padding: 9px 8px; }
+
+/* 長い列見出し ("Chi phí nhân công" 等) は折り返して列幅を数値に合わせる */
+#attSumList .tx-table thead th { white-space: normal; }
+#attSumList .tx-table td.tx-num { white-space: nowrap; }
+
+.att-sum-emp { min-width: 120px; }
+
+.att-sum-emp-name {
+  font-weight: 600;
+  white-space: normal;
+}
+
+.att-sum-emp-sub {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+  white-space: normal;
+}
+
+/* 勤怠集計: 単価未設定の警告バナー */
+.att-norate-banner {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  color: #92400e;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
 .tx-card-actions {
   display: flex;
   gap: 6px;
@@ -1753,7 +1809,7 @@ form select:focus {
   .form-row-3 { grid-template-columns: 1fr 1fr; }
 }
 
-/* Currency input with đ suffix */
+/* Currency input with VND suffix */
 .currency-input {
   position: relative;
   margin-bottom: 14px;
@@ -1761,7 +1817,7 @@ form select:focus {
 
 .currency-input input {
   margin-bottom: 0;
-  padding-right: 36px;
+  padding-right: 64px; /* "VND" 〜 "VND/ngày" が重ならない幅 */
 }
 
 .currency-suffix {
@@ -1771,6 +1827,7 @@ form select:focus {
   transform: translateY(-50%);
   color: var(--muted);
   font-weight: 600;
+  font-size: 12px;
   pointer-events: none;
 }
 
@@ -1965,18 +2022,25 @@ form select:focus {
 }
 
 /* ── 勤怠カレンダー(月間ビュー) ── */
-.att-month-nav {
+/* .dash-toolbar のグリッド定義より後勝ちさせるため2クラスで指定する */
+.dash-toolbar.att-month-nav {
   display: flex;
   align-items: center;
   gap: 8px;
   justify-content: center;
+  flex-wrap: wrap;
 }
 
-.att-month-label {
-  font-size: 18px;
-  font-weight: 800;
+.att-month-nav .btn { width: auto; }
+
+.att-month-nav .att-month-input {
+  width: auto;
+  flex: 0 0 auto;
+  min-width: 150px;
+  margin-bottom: 0;
+  font-size: 16px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
-  min-width: 100px;
   text-align: center;
 }
 
@@ -3068,3 +3132,17 @@ main:has(#transactionScreen.active) {
   background: var(--bg);
 }
 .att-sum-total-row td.tx-col-sticky { background: var(--bg); }
+
+
+/* ── スマホ幅の最適化 ── */
+@media (max-width: 480px) {
+  .att-calendar .cal-day { min-height: 62px; padding: 3px 2px 2px; }
+  .att-day-chips { font-size: 9px; gap: 1px; }
+  .att-day-chip { padding: 1px 2px; text-align: center; }
+  /* 接頭語 (出/Vào 等) は隠し、チップの色で種別を示す */
+  .att-day-chip .chip-prefix { display: none; }
+  #attSumList .tx-table { font-size: 12px; }
+  #attSumList .tx-table thead th,
+  #attSumList .tx-table tbody td { padding: 8px 6px; }
+  .att-sum-emp { min-width: 104px; }
+}

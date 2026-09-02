@@ -234,7 +234,7 @@
     <!-- Register screen -->
     <section id="registerScreen" class="screen">
       <div class="card">
-        <h2 data-i18n="registerTitle">Đăng ký người dùng</h2>
+        <h2 id="registerScreenTitle" data-i18n="registerTitle">Đăng ký người dùng</h2>
         <form id="registerForm">
           <h4 class="form-section" data-i18n="sectionBasic">Thông tin cơ bản</h4>
 
@@ -306,7 +306,7 @@
               <label data-i18n="hourlyRate">Lương theo giờ</label>
               <div class="currency-input">
                 <input type="number" id="regHourlyRate" min="0" step="1000" inputmode="numeric" />
-                <span class="currency-suffix">đ/h</span>
+                <span class="currency-suffix">VND/h</span>
               </div>
             </div>
           </div>
@@ -316,7 +316,7 @@
               <label data-i18n="dailyRate">Lương theo ngày</label>
               <div class="currency-input">
                 <input type="number" id="regDailyRate" min="0" step="1000" inputmode="numeric" />
-                <span class="currency-suffix">đ/日</span>
+                <span class="currency-suffix" data-i18n="currencyPerDay">VND/日</span>
               </div>
             </div>
             <div></div>
@@ -338,7 +338,7 @@
             </div>
           </div>
 
-          <button type="submit" class="btn btn-primary" data-i18n="registerBtn">Đăng ký</button>
+          <button type="submit" id="registerSubmitBtn" class="btn btn-primary" data-i18n="registerBtn">Đăng ký</button>
           <button type="button" id="cancelRegisterBtn" class="btn btn-ghost btn-block" data-i18n="cancel">Hủy</button>
         </form>
       </div>
@@ -407,9 +407,10 @@
 
         <div class="dash-toolbar att-month-nav">
           <button type="button" id="attMngPrevMonth" class="btn btn-ghost month-btn">«</button>
-          <span id="attMngMonthLabel" class="att-month-label">2026/05</span>
+          <input type="month" id="attMngMonthInput" class="tx-input att-month-input" />
           <button type="button" id="attMngNextMonth" class="btn btn-ghost month-btn">»</button>
           <button type="button" id="attMngThisMonthBtn" class="btn btn-ghost btn-sm" data-i18n="dashRangeThisMonth">今月</button>
+          <button type="button" id="attMngExportBtn" class="btn btn-ghost btn-sm" data-i18n="exportCsv">⬇ CSV</button>
         </div>
 
         <!-- 月間サマリ: 総労働時間 / 出勤日数 -->
@@ -625,10 +626,10 @@
           <div id="pettyList" class="tx-list"></div>
           <div class="petty-summary">
             <span data-i18n="pettyTotalIn">Tổng thu</span>:
-            <span id="pettyTotalIn" class="petty-total in">0 đ</span>
+            <span id="pettyTotalIn" class="petty-total in">0 VND</span>
             &nbsp;/&nbsp;
             <span data-i18n="pettyTotalOut">Tổng chi</span>:
-            <span id="pettyTotalOut" class="petty-total out">0 đ</span>
+            <span id="pettyTotalOut" class="petty-total out">0 VND</span>
           </div>
         </div>
 
@@ -658,21 +659,21 @@
                 </div>
                 <div class="stk-totals-trow">
                   <div class="stk-totals-rowlabel" data-i18n="dashFood">Đồ ăn</div>
-                  <div id="stkFoodCurrent" class="stk-totals-cell">0 đ</div>
-                  <div id="stkFoodPrev" class="stk-totals-cell muted">0 đ</div>
-                  <div id="stkFoodDiff" class="stk-totals-cell">0 đ</div>
+                  <div id="stkFoodCurrent" class="stk-totals-cell">0 VND</div>
+                  <div id="stkFoodPrev" class="stk-totals-cell muted">0 VND</div>
+                  <div id="stkFoodDiff" class="stk-totals-cell">0 VND</div>
                 </div>
                 <div class="stk-totals-trow">
                   <div class="stk-totals-rowlabel" data-i18n="dashDrink">Đồ uống</div>
-                  <div id="stkDrinkCurrent" class="stk-totals-cell">0 đ</div>
-                  <div id="stkDrinkPrev" class="stk-totals-cell muted">0 đ</div>
-                  <div id="stkDrinkDiff" class="stk-totals-cell">0 đ</div>
+                  <div id="stkDrinkCurrent" class="stk-totals-cell">0 VND</div>
+                  <div id="stkDrinkPrev" class="stk-totals-cell muted">0 VND</div>
+                  <div id="stkDrinkDiff" class="stk-totals-cell">0 VND</div>
                 </div>
                 <div class="stk-totals-trow stk-totals-trow-total">
                   <div class="stk-totals-rowlabel" data-i18n="stkTotalRow">合計</div>
-                  <div id="stkCurrentTotal" class="stk-totals-cell">0 đ</div>
-                  <div id="stkPrevTotal" class="stk-totals-cell muted">0 đ</div>
-                  <div id="stkDiffTotal" class="stk-totals-cell">0 đ</div>
+                  <div id="stkCurrentTotal" class="stk-totals-cell">0 VND</div>
+                  <div id="stkPrevTotal" class="stk-totals-cell muted">0 VND</div>
+                  <div id="stkDiffTotal" class="stk-totals-cell">0 VND</div>
                 </div>
               </div>
             </div>
@@ -705,7 +706,7 @@
 
             <div class="stk-editor-summary">
               <span data-i18n="stkSubtotal">Tổng cộng</span>
-              <strong id="stkEditorTotal">0 đ</strong>
+              <strong id="stkEditorTotal">0 VND</strong>
             </div>
           </div>
         </div>
@@ -764,8 +765,8 @@
         <button type="button" id="pAddItem" class="btn btn-ghost btn-block btn-add-item" data-i18n="addItemBtn">+ アイテムを追加</button>
 
         <div class="tx-summary-box">
-          <div><span data-i18n="amountExclTax">Tiền chưa thuế</span>: <span id="pAmountExcl">0 đ</span></div>
-          <div><span data-i18n="amountInclTax">Tiền có thuế</span>: <strong id="pAmountIncl">0 đ</strong></div>
+          <div><span data-i18n="amountExclTax">Tiền chưa thuế</span>: <span id="pAmountExcl">0 VND</span></div>
+          <div><span data-i18n="amountInclTax">Tiền có thuế</span>: <strong id="pAmountIncl">0 VND</strong></div>
         </div>
 
         <button type="submit" class="btn btn-primary" id="pSubmitBtn" data-i18n="registerBtn">Đăng ký</button>
@@ -777,7 +778,7 @@
         <div class="batch-item">
           <div class="batch-item-header">
             <span class="batch-item-index">#1</span>
-            <button type="button" class="batch-item-remove" title="削除">×</button>
+            <button type="button" class="batch-item-remove" title="削除" data-i18n-title="colDelete">×</button>
           </div>
           <label><span data-i18n="productName">Tên sản phẩm</span><span class="required">*</span></label>
           <input type="text" data-field="productName" list="productOptions" required maxlength="80" />
@@ -797,7 +798,7 @@
               <label data-i18n="unitPrice">Đơn giá (chưa thuế)</label>
               <div class="currency-input">
                 <input type="number" data-field="unitPrice" min="0" step="1" inputmode="numeric" />
-                <span class="currency-suffix">đ</span>
+                <span class="currency-suffix">VND</span>
               </div>
             </div>
             <div>
@@ -861,7 +862,7 @@
         <button type="button" id="cAddItem" class="btn btn-ghost btn-block btn-add-item" data-i18n="addItemBtn">+ アイテムを追加</button>
 
         <div class="tx-summary-box">
-          <div><span data-i18n="amountInclTax">Tiền có thuế</span>: <strong id="cTotalAmount">0 đ</strong></div>
+          <div><span data-i18n="amountInclTax">Tiền có thuế</span>: <strong id="cTotalAmount">0 VND</strong></div>
         </div>
 
         <button type="submit" class="btn btn-primary" id="cSubmitBtn" data-i18n="registerBtn">Đăng ký</button>
@@ -873,7 +874,7 @@
         <div class="batch-item">
           <div class="batch-item-header">
             <span class="batch-item-index">#1</span>
-            <button type="button" class="batch-item-remove" title="削除">×</button>
+            <button type="button" class="batch-item-remove" title="削除" data-i18n-title="colDelete">×</button>
           </div>
           <label><span data-i18n="category">Khoản mục</span><span class="required">*</span></label>
           <select data-field="category" required>
@@ -898,7 +899,7 @@
               <label><span data-i18n="unitPriceInclTax">Đơn giá (có thuế)</span><span class="required">*</span></label>
               <div class="currency-input">
                 <input type="number" data-field="unitPrice" min="0" step="1" inputmode="numeric" required />
-                <span class="currency-suffix">đ</span>
+                <span class="currency-suffix">VND</span>
               </div>
             </div>
             <div>
@@ -917,7 +918,7 @@
           </div>
           <div class="batch-item-amount">
             <span data-i18n="amountInclTax">Số tiền (có thuế)</span>:
-            <strong class="batch-item-amount-value">0 đ</strong>
+            <strong class="batch-item-amount-value">0 VND</strong>
           </div>
           <label data-i18n="note">Ghi chú</label>
           <input type="text" data-field="note" maxlength="200" />
@@ -1002,73 +1003,73 @@
         <label data-i18n="totalSalesIncl">売上合計（税込）</label>
         <div class="currency-input">
           <input type="number" id="dsTotalSalesIncl" min="0" step="1" inputmode="numeric" />
-          <span class="currency-suffix">đ</span>
+          <span class="currency-suffix">VND</span>
         </div>
 
         <label data-i18n="totalSalesExcl">売上合計（税抜）</label>
         <div class="currency-input">
           <input type="number" id="dsTotalSalesExcl" min="0" step="1" inputmode="numeric" />
-          <span class="currency-suffix">đ</span>
+          <span class="currency-suffix">VND</span>
         </div>
 
         <label data-i18n="foodSalesIncl">フード売上（税込）</label>
         <div class="currency-input">
           <input type="number" id="dsFoodSalesIncl" min="0" step="1" inputmode="numeric" />
-          <span class="currency-suffix">đ</span>
+          <span class="currency-suffix">VND</span>
         </div>
 
         <label data-i18n="foodSalesExcl">フード売上（税抜）</label>
         <div class="currency-input">
           <input type="number" id="dsFoodSalesExcl" min="0" step="1" inputmode="numeric" />
-          <span class="currency-suffix">đ</span>
+          <span class="currency-suffix">VND</span>
         </div>
 
         <label data-i18n="drinkSalesIncl">ドリンク売上（税込）</label>
         <div class="currency-input">
           <input type="number" id="dsDrinkSalesIncl" min="0" step="1" inputmode="numeric" />
-          <span class="currency-suffix">đ</span>
+          <span class="currency-suffix">VND</span>
         </div>
 
         <label data-i18n="drinkSalesExcl">ドリンク売上（税抜）</label>
         <div class="currency-input">
           <input type="number" id="dsDrinkSalesExcl" min="0" step="1" inputmode="numeric" />
-          <span class="currency-suffix">đ</span>
+          <span class="currency-suffix">VND</span>
         </div>
 
         <label data-i18n="paymentCash">売上 現金</label>
         <div class="currency-input">
           <input type="number" id="dsPaymentCash" min="0" step="1" inputmode="numeric" />
-          <span class="currency-suffix">đ</span>
+          <span class="currency-suffix">VND</span>
         </div>
 
         <label data-i18n="paymentQr">売上 QR</label>
         <div class="currency-input">
           <input type="number" id="dsPaymentQr" min="0" step="1" inputmode="numeric" />
-          <span class="currency-suffix">đ</span>
+          <span class="currency-suffix">VND</span>
         </div>
 
         <label data-i18n="paymentCard">売上 クレジットカード</label>
         <div class="currency-input">
           <input type="number" id="dsPaymentCard" min="0" step="1" inputmode="numeric" />
-          <span class="currency-suffix">đ</span>
+          <span class="currency-suffix">VND</span>
         </div>
 
         <label data-i18n="discountAmount">割引金額</label>
         <div class="currency-input">
           <input type="number" id="dsDiscountAmount" min="0" step="1" inputmode="numeric" />
-          <span class="currency-suffix">đ</span>
+          <span class="currency-suffix">VND</span>
         </div>
 
         <label data-i18n="depositAmount">入金金額</label>
         <div class="currency-input">
           <input type="number" id="dsDepositAmount" min="0" step="1" inputmode="numeric" />
-          <span class="currency-suffix">đ</span>
+          <span class="currency-suffix">VND</span>
         </div>
 
         <label data-i18n="pettyCashAmount">小口使用金額</label>
         <div class="currency-input">
           <input type="number" id="dsPettyCashAmount" min="0" step="1" inputmode="numeric" />
-          <span class="currency-suffix">đ</span>
+          <span class="currency-suffix">VND</span>
         </div>
 
         <label data-i18n="customers">ご来店人数</label>
@@ -1112,19 +1113,19 @@
         <label data-i18n="foodSalesTarget">Mục tiêu đồ ăn</label>
         <div class="currency-input">
           <input type="number" id="mtFoodTarget" min="0" step="1" inputmode="numeric" />
-          <span class="currency-suffix">đ</span>
+          <span class="currency-suffix">VND</span>
         </div>
 
         <label data-i18n="drinkSalesTarget">Mục tiêu đồ uống</label>
         <div class="currency-input">
           <input type="number" id="mtDrinkTarget" min="0" step="1" inputmode="numeric" />
-          <span class="currency-suffix">đ</span>
+          <span class="currency-suffix">VND</span>
         </div>
 
         <label data-i18n="otherSalesTarget">Mục tiêu khác</label>
         <div class="currency-input">
           <input type="number" id="mtOtherTarget" min="0" step="1" inputmode="numeric" />
-          <span class="currency-suffix">đ</span>
+          <span class="currency-suffix">VND</span>
         </div>
 
         <h4 class="form-section" data-i18n="costRatioTargets">Mục tiêu tỷ lệ</h4>
@@ -1172,7 +1173,7 @@
         <label data-i18n="otherLaborCostLabel">Chi phí nhân công khác (cố định, thưởng, BHXH...)</label>
         <div class="currency-input">
           <input type="number" id="lcAmount" min="0" step="1" inputmode="numeric" required />
-          <span class="currency-suffix">đ</span>
+          <span class="currency-suffix">VND</span>
         </div>
 
         <div class="dash-hint muted" data-i18n="otherLaborHint">
@@ -1193,7 +1194,7 @@
       <h3 data-i18n="locationModalTitle">Thêm khu vực lưu trữ</h3>
       <form id="locationForm">
         <label><span data-i18n="locationName">Tên khu vực</span><span class="required">*</span></label>
-        <input type="text" id="locName" required maxlength="40" autocomplete="off" placeholder="Ví dụ: ストッカー, ドリンク棚..." />
+        <input type="text" id="locName" required maxlength="40" autocomplete="off" placeholder="Ví dụ: Kho, kệ đồ uống..." data-i18n-placeholder="locNamePlaceholder" />
         <button type="submit" class="btn btn-primary" data-i18n="saveBtn">Lưu</button>
         <button type="button" id="locationCancel" class="btn btn-ghost btn-block" data-i18n="cancel">Hủy</button>
       </form>
@@ -1219,7 +1220,7 @@
         <div class="form-row-2">
           <div>
             <label data-i18n="unit">Đơn vị</label>
-            <input type="text" id="stkManUnit" maxlength="10" placeholder="個 / kg / PC" />
+            <input type="text" id="stkManUnit" maxlength="10" placeholder="cái / kg / PC" data-i18n-placeholder="unitPlaceholder" />
           </div>
           <div>
             <label data-i18n="category">Khoản mục</label>
@@ -1233,7 +1234,7 @@
         <label data-i18n="unitPriceLabel">Đơn giá (đã có thuế)</label>
         <div class="currency-input">
           <input type="number" id="stkManUnitPrice" min="0" step="1" inputmode="numeric" />
-          <span class="currency-suffix">đ</span>
+          <span class="currency-suffix">VND</span>
         </div>
         <button type="submit" class="btn btn-primary" data-i18n="addItemBtn">Thêm sản phẩm</button>
       </form>

@@ -233,6 +233,85 @@ async function deleteUser(body: Row) {
   return await deleteById("users", str(body.id));
 }
 
+// マスタ画面の編集モーダル用: 1ユーザーの全プロフィールを返す (passwordHash は除く)
+async function getUser(body: Row) {
+  const id = str(body.id);
+  if (!id) return { success: false, message: "Missing id" };
+  const u = await findUserById(id);
+  if (!u) return { success: false, message: "Not found" };
+  return {
+    success: true,
+    user: {
+      id: u.id,
+      name: str(u.name),
+      email: str(u.email),
+      role: str(u.role),
+      phone: str(u.phone),
+      birthDate: str(u.birthDate),
+      gender: str(u.gender),
+      idNumber: str(u.idNumber),
+      address: str(u.address),
+      hireDate: str(u.hireDate),
+      emergencyContact: str(u.emergencyContact),
+      bankName: str(u.bankName),
+      bankBranch: str(u.bankBranch),
+      bankAccount: str(u.bankAccount),
+      hourlyRate: _toNum(u.hourlyRate),
+      dailyRate: _toNum(u.dailyRate),
+      store: str(u.store),
+    },
+  };
+}
+
+// ユーザー情報の更新。送られてきたフィールドだけを部分更新する。
+async function updateUser(body: Row) {
+  const id = str(body.id);
+  if (!id) return { success: false, message: "Missing id" };
+  const user = await findUserById(id);
+  if (!user) return { success: false, message: "Not found" };
+
+  const patch: Row = {};
+
+  if (body.name !== undefined) {
+    const name = str(body.name).trim();
+    if (!name) return { success: false, message: "Name required" };
+    patch.name = name;
+  }
+
+  if (body.email !== undefined) {
+    const email = str(body.email).trim().toLowerCase();
+    if (email && email !== str(user.email).toLowerCase()) {
+      const users = await fetchAll("users");
+      if (users.some((u) => str(u.id) !== id && str(u.email).toLowerCase() === email)) {
+        return { success: false, code: "EMAIL_EXISTS", message: "Email already registered" };
+      }
+    }
+    patch.email = email;
+  }
+
+  if (body.role !== undefined) {
+    const role = str(body.role).trim();
+    patch.role = ["admin", "employee", "parttime"].includes(role) ? role : "employee";
+  }
+
+  if (body.gender !== undefined) {
+    const gender = str(body.gender).trim();
+    patch.gender = ["male", "female", "other", ""].includes(gender) ? gender : "";
+  }
+
+  for (const k of [
+    "phone", "birthDate", "idNumber", "address", "hireDate",
+    "emergencyContact", "bankName", "bankBranch", "bankAccount", "store",
+  ]) {
+    if (body[k] !== undefined) patch[k] = str(body[k]).trim();
+  }
+  if (body.hourlyRate !== undefined) patch.hourlyRate = _toNum(body.hourlyRate);
+  if (body.dailyRate !== undefined) patch.dailyRate = _toNum(body.dailyRate);
+
+  await updateRow("users", id, patch);
+  return { success: true };
+}
+
 async function loginUser(body: Row) {
   const email = str(body.email).trim().toLowerCase();
   const password = str(body.password);
@@ -2061,6 +2140,8 @@ const HANDLERS: Record<string, (body: Row) => Promise<unknown>> = {
   login: loginUser,
   listUsers,
   deleteUser,
+  getUser,
+  updateUser,
   record: recordAttendance,
   getStatus,
   listAttendance,
