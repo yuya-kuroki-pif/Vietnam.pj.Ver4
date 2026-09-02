@@ -2181,12 +2181,21 @@ textarea:focus {
 }
 
 @media (min-width: 900px) {
-  .tx-filters {
+  /* 取引画面 (フィルタ4つ) 専用のレイアウト。
+     .tx-filters は勤怠集計 (フィルタ2つ) でも使われているため、
+     ここで全画面共通にすると勤怠集計側のコントロールが潰れる。 */
+  #transactionScreen .tx-filters {
     /* タブレット〜小さめのPC: 2列 × 2段 (店舗/取引先 → 期間/登録方法)。
        4列に詰め込むと店舗ドロップダウンが読めない幅まで潰れるため。
        1列目の最小幅は「2026/08/01 + カレンダーアイコン」が2つ並んでも
        欠けない値。ブラウザやロケールで表記が長くなる分の余裕も含む。 */
     grid-template-columns: minmax(320px, 1fr) minmax(0, 1fr);
+    align-items: center;
+  }
+  /* 勤怠集計: 店舗セレクト + 月ピッカーを1段に並べる */
+  #attendanceSummaryScreen .tx-filters {
+    grid-template-columns: minmax(200px, 280px) minmax(170px, 230px);
+    justify-content: start;
     align-items: center;
   }
   /* 操作ボタンはフィルタとは別の行で右寄せ。
@@ -2208,8 +2217,9 @@ textarea:focus {
 
 @media (min-width: 1200px) {
   /* 広い画面ではフィルタ4つを1段に。minmax(0, ...) は列がコンテンツ幅より
-     縮めるようにするため (長い店舗名はドロップダウン内で省略表示される)。 */
-  .tx-filters {
+     縮めるようにするため (長い店舗名はドロップダウン内で省略表示される)。
+     取引画面限定 (勤怠集計はフィルタ2つなので上の2列指定のまま)。 */
+  #transactionScreen .tx-filters {
     grid-template-columns:
       minmax(0, 1fr) minmax(0, 1fr) minmax(320px, 1.2fr) minmax(0, 0.8fr);
   }
