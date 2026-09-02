@@ -41,7 +41,24 @@
       "Bash(curl -s https://yczwdkkuaitlbvtskmsf.supabase.co/functions/v1/api -H 'Content-Type: text/plain;charset=utf-8' -d '{\"action\":\"listUsers\"}')",
       "Bash(python -c ' *)",
       "Bash(curl -sL https://script.google.com/macros/s/AKfycbzKtUuYSW1XYR1bn30IX5aZWyN4ayBYGGlGgZiMntYDwCEwpQ4ohqU4rUqnca2CHXC-/exec -H 'Content-Type: text/plain;charset=utf-8' -d '{\"action\":\"listAttendance\",\"dateFrom\":\"2026-09-01\",\"dateTo\":\"2026-09-03\"}' -o /tmp/gas_today.json)",
-      "mcp__claude_ai_Supabase__get_advisors"
+      "mcp__claude_ai_Supabase__get_advisors",
+      "Bash(curl -s https://yczwdkkuaitlbvtskmsf.supabase.co/functions/v1/api -H 'Content-Type: text/plain;charset=utf-8' -d '{\"action\":\"listAttendance\",\"userId\":\"fdcd9ef3-de16-4fe2-8eaf-93037441b0a0\",\"dateFrom\":\"2026-08-01\",\"dateTo\":\"2026-08-31\"}')",
+      "Bash(curl -s https://yczwdkkuaitlbvtskmsf.supabase.co/functions/v1/api -H 'Content-Type: text/plain;charset=utf-8' -d '{\"action\":\"listAttendance\",\"userId\":\"fdcd9ef3-de16-4fe2-8eaf-93037441b0a0\",\"store\":\"ROBATA NARU\",\"dateFrom\":\"2026-08-01\",\"dateTo\":\"2026-08-31\"}')",
+      "Bash(curl -s https://yczwdkkuaitlbvtskmsf.supabase.co/functions/v1/api -H 'Content-Type: text/plain;charset=utf-8' -d '{\"action\":\"getAttendanceSummary\",\"year\":2026,\"month\":8,\"store\":\"ROBATA NARU\"}')",
+      "Bash(PYTHONIOENCODING=utf-8 python -c ' *)",
+      "Read(//c/Users/stn12/.claude/plugins/**)",
+      "Bash(node -e \"require\\('playwright'\\); console.log\\('playwright ok'\\)\")",
+      "Bash(npm ls *)",
+      "Read(//c/Program Files \\\\\\(x86\\\\\\)/Microsoft/Edge/Application/**)",
+      "Read(//c/Program Files/Google/Chrome/Application/**)",
+      "Bash(python -m http.server 8123)",
+      "Bash(curl -sf http://localhost:8123/index.html)",
+      "Read(//c/Users/stn12/AppData/Local/Temp/claude/c--Users-stn12-Desktop-00-------000-------40---------------------Vietnam-pj-Ver4/b44d1b6c-d79c-43f4-9dfb-c57034944dd0/scratchpad/pw/**)",
+      "Bash(node all.js)",
+      "Bash(gh api *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"https://yuya-kuroki-pif.github.io/Vietnam.pj.Ver4/\")",
+      "Bash(curl -s \"https://yuya-kuroki-pif.github.io/Vietnam.pj.Ver4/service_worker.js\")",
+      "Bash(curl -s https://yczwdkkuaitlbvtskmsf.supabase.co/functions/v1/api -d '{\"action\":\"listPositions\",\"store\":\"ROBATA NARU\"}')"
     ]
   }
 }
