@@ -58,7 +58,12 @@
       "Bash(gh api *)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"https://yuya-kuroki-pif.github.io/Vietnam.pj.Ver4/\")",
       "Bash(curl -s \"https://yuya-kuroki-pif.github.io/Vietnam.pj.Ver4/service_worker.js\")",
-      "Bash(curl -s https://yczwdkkuaitlbvtskmsf.supabase.co/functions/v1/api -d '{\"action\":\"listPositions\",\"store\":\"ROBATA NARU\"}')"
+      "Bash(curl -s https://yczwdkkuaitlbvtskmsf.supabase.co/functions/v1/api -d '{\"action\":\"listPositions\",\"store\":\"ROBATA NARU\"}')",
+      "Bash(curl -s -o /dev/null -w \"pages status: %{http_code}\\\\n\" \"https://yuya-kuroki-pif.github.io/Vietnam.pj.Ver4/\")",
+      "Bash(sed -i 's/window.scrollTo\\(0, 800\\)/window.scrollTo\\(0, 0\\)/; s/fullPage: false/fullPage: true/; s/dash_mobile_cards.png/dash_mobile_full.png/' dash2.js)",
+      "Bash(node dash2.js)",
+      "Bash(npm i *)",
+      "Bash(npx playwright *)"
     ]
   }
 }
