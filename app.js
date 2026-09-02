@@ -441,12 +441,26 @@ const I18N = {
     msgUserUpdated: "Đã cập nhật.",
     noRateBanner: "⚠ Chưa cài đơn giá lương (chi phí nhân công = 0): {names}",
     tabShiftGrid: "Bảng ca",
-    sgHint: "Chạm vào ô để đăng ký / xóa ca làm việc",
+    sgHint: "Chạm vào ô để đăng ký / xóa ca làm việc. Chạm vào ô ngân sách để nhập.",
     sgStaffCount: "Số người",
     sgHoursRow: "Số giờ",
     sgLaborRow: "Chi phí NC (dự kiến)",
     colTotal: "Tổng",
     sgAddShift: "Thêm ca làm việc",
+    sgSalesBudget: "Ngân sách doanh thu",
+    sgModelRow: "Ca mẫu (giờ)",
+    sgDiffRow: "Chênh lệch",
+    sgLaborRateRow: "Tỷ lệ chi phí NC",
+    sgSalesPerHourRow: "Doanh thu / giờ công",
+    sgPositionsBtn: "⚙ Vị trí",
+    posLabel: "Vị trí",
+    posNone: "— Không chọn —",
+    posModalTitle: "Cài đặt vị trí",
+    posName: "Tên vị trí",
+    posModelHours: "Giờ mẫu/ngày",
+    posAddBtn: "+ Thêm vị trí",
+    sgBudgetPrompt: "Nhập ngân sách doanh thu của ngày (VND)",
+    sgSelectStoreFirst: "Vui lòng chọn cửa hàng trước.",
   },
   ja: {
     appTitle: "勤怠システム",
@@ -845,12 +859,26 @@ const I18N = {
     msgUserUpdated: "更新しました。",
     noRateBanner: "⚠ 単価未設定(人件費0円で計算中): {names}",
     tabShiftGrid: "シフト表",
-    sgHint: "セルをタップしてシフトを登録・削除できます",
+    sgHint: "セルをタップしてシフトを登録・削除できます。売上予算のセルをタップすると入力できます。",
     sgStaffCount: "人数",
     sgHoursRow: "時間",
     sgLaborRow: "人件費(見込)",
     colTotal: "合計",
     sgAddShift: "シフトを追加",
+    sgSalesBudget: "売上予算",
+    sgModelRow: "モデルシフト(h)",
+    sgDiffRow: "差異",
+    sgLaborRateRow: "人件費率",
+    sgSalesPerHourRow: "人時売上高",
+    sgPositionsBtn: "⚙ ポジション",
+    posLabel: "ポジション",
+    posNone: "— 指定なし —",
+    posModalTitle: "ポジション設定",
+    posName: "ポジション名",
+    posModelHours: "モデル時間/日",
+    posAddBtn: "+ ポジションを追加",
+    sgBudgetPrompt: "その日の売上予算を入力してください (VND)",
+    sgSelectStoreFirst: "先に店舗を選択してください。",
   },
 };
 
@@ -1135,8 +1163,14 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
 // セルをタップ → モーダルでパターン/カスタム時刻の登録・削除。
 // 上部に日別サマリー (人数 / 時間 / 人件費見込) を表示する。
 // ============================================================
-const sgState = { store: "", year: null, month: null, shifts: [], byUserDate: {} };
+const sgState = {
+  store: "", year: null, month: null,
+  shifts: [], byUserDate: {},
+  positions: [],   // [{id, store, name, color, modelHours, sortOrder}]
+  budgets: {},     // { "yyyy-MM-dd": salesBudget }
+};
 let sgModalCtx = { userId: "", date: "" };
+let sgLastPosition = ""; // 直近に選んだポジション (連続登録を楽にする)
 
 function sgYm() {
   return `${sgState.year}-${String(sgState.month).padStart(2, "0")}`;
@@ -1184,11 +1218,21 @@ async function loadShiftGrid() {
     const pr = await api("getPatterns");
     if (pr && pr.success) patterns = pr.patterns || [];
   }
-  const r = await api("listShifts", {
-    year: sgState.year,
-    month: sgState.month,
-    filterStore: sgState.store,
-  });
+  const [r, posR, budR] = await Promise.all([
+    api("listShifts", {
+      year: sgState.year,
+      month: sgState.month,
+      filterStore: sgState.store,
+    }),
+    api("listPositions", { store: sgState.store }),
+    api("listShiftBudgets", {
+      store: sgState.store,
+      year: sgState.year,
+      month: sgState.month,
+    }),
+  ]);
+  sgState.positions = (posR && posR.positions) || [];
+  sgState.budgets = (budR && budR.budgets) || {};
   sgState.shifts = (r && r.shifts) || [];
   sgState.byUserDate = {};
   sgState.shifts.forEach((s) => {
@@ -1253,15 +1297,24 @@ function renderShiftGrid() {
 
   const tbody = document.createElement("tbody");
 
-  // ---- 集計 (日別 + 従業員別) ----
+  // ---- 集計 (日別 + 従業員別 + ポジション別) ----
   const dayStats = dateStrs.map(() => ({ people: 0, hours: 0, labor: 0 }));
+  const posHoursByDay = {}; // ポジション名 -> 日別の予定時間
+  sgState.positions.forEach((p) => { posHoursByDay[p.name] = dateStrs.map(() => 0); });
+  const unassignedByDay = dateStrs.map(() => 0); // ポジション未指定の予定時間
   let grandHours = 0, grandLabor = 0, grandPeopleDays = 0;
   const userRows = users.map((u) => {
     let uHours = 0, uDays = 0;
     const cells = dateStrs.map((ds, i) => {
       const shifts = sgState.byUserDate[`${u.id}|${ds}`] || [];
       if (!shifts.length) return shifts;
-      const h = shifts.reduce((a, s) => a + sgShiftHours(s), 0);
+      let h = 0;
+      shifts.forEach((s) => {
+        const sh = sgShiftHours(s);
+        h += sh;
+        if (posHoursByDay[s.position] !== undefined) posHoursByDay[s.position][i] += sh;
+        else unassignedByDay[i] += sh;
+      });
       uHours += h;
       uDays += 1;
       const labor = Number(u.dailyRate) > 0
@@ -1278,21 +1331,40 @@ function renderShiftGrid() {
     return { u, cells, uHours, uDays };
   });
 
+  // モデル時間 (1日あたりの必要時間 = 全ポジションの modelHours 合計)
+  const modelPerDay = sgState.positions.reduce((a, p) => a + (Number(p.modelHours) || 0), 0);
+  const modelTotal = modelPerDay * daysInMonth;
+  const budgetOf = (i) => Number(sgState.budgets[dateStrs[i]]) || 0;
+  const budgetTotal = dateStrs.reduce((a, _d, i) => a + budgetOf(i), 0);
+
   // ---- サマリー行 ----
   const fmtHoursNum = (v) => String(Math.round(v * 4) / 4);
   const fmtLabor = (v) =>
-    v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : Math.round(v).toLocaleString("vi-VN");
-  const addSumRow = (label, get, total) => {
+    v >= 1e6 ? (v / 1e6).toFixed(1) + "M"
+      : v >= 1e3 ? Math.round(v / 1e3) + "k"
+      : Math.round(v).toLocaleString("vi-VN");
+  const fmtDiff = (v) => {
+    const r = Math.round(v * 4) / 4;
+    return r > 0 ? "+" + r : r < 0 ? String(r) : "±0";
+  };
+  // labelEl: 文字列 or DOM要素。cellFn(i) は {text, cls, onClick} を返す。
+  const addSumRow = (labelEl, cellFn, total, rowCls) => {
     const tr = document.createElement("tr");
-    tr.className = "sg-sum-row";
+    tr.className = "sg-sum-row" + (rowCls ? " " + rowCls : "");
     const td0 = document.createElement("td");
     td0.className = "sg-sticky-col";
-    td0.textContent = label;
+    if (typeof labelEl === "string") td0.textContent = labelEl;
+    else td0.appendChild(labelEl);
     tr.appendChild(td0);
-    dayStats.forEach((st, i) => {
+    dateStrs.forEach((ds, i) => {
       const td = document.createElement("td");
-      td.className = dateStrs[i] === today ? "sg-today" : "";
-      td.textContent = get(st);
+      const c = cellFn(i) || {};
+      td.textContent = c.text || "";
+      td.className = (ds === today ? "sg-today " : "") + (c.cls || "");
+      if (c.onClick) {
+        td.classList.add("sg-editable");
+        td.addEventListener("click", c.onClick);
+      }
       tr.appendChild(td);
     });
     const tdT = document.createElement("td");
@@ -1301,9 +1373,74 @@ function renderShiftGrid() {
     tr.appendChild(tdT);
     tbody.appendChild(tr);
   };
-  addSumRow(t("sgStaffCount"), (s) => (s.people ? s.people : ""), String(grandPeopleDays));
-  addSumRow(t("sgHoursRow"), (s) => (s.hours ? fmtHoursNum(s.hours) : ""), fmtHoursNum(grandHours));
-  addSumRow(t("sgLaborRow"), (s) => (s.labor ? fmtLabor(s.labor) : ""), fmtLabor(grandLabor));
+
+  // 1. 売上予算 (セルタップで入力)
+  addSumRow(t("sgSalesBudget"), (i) => ({
+    text: budgetOf(i) ? fmtLabor(budgetOf(i)) : "—",
+    onClick: () => editSgBudget(dateStrs[i]),
+  }), budgetTotal ? fmtLabor(budgetTotal) : "—", "sg-budget-row");
+
+  // 2. モデルシフト (予定h / モデルh)
+  addSumRow(t("sgModelRow"), (i) => ({
+    text: `${fmtHoursNum(dayStats[i].hours)}/${fmtHoursNum(modelPerDay)}`,
+  }), `${fmtHoursNum(grandHours)}/${fmtHoursNum(modelTotal)}`);
+
+  // 3. 差異 (予定 - モデル)
+  addSumRow(t("sgDiffRow"), (i) => {
+    const d = dayStats[i].hours - modelPerDay;
+    return {
+      text: fmtDiff(d),
+      cls: d > 0 ? "sg-diff-over" : d < 0 ? "sg-diff-under" : "",
+    };
+  }, fmtDiff(grandHours - modelTotal));
+
+  // 4. 人数
+  addSumRow(t("sgStaffCount"), (i) => ({
+    text: dayStats[i].people ? String(dayStats[i].people) : "",
+  }), String(grandPeopleDays));
+
+  // 5. 人件費(見込)
+  addSumRow(t("sgLaborRow"), (i) => ({
+    text: dayStats[i].labor ? fmtLabor(dayStats[i].labor) : "",
+  }), fmtLabor(grandLabor));
+
+  // 6. 人件費率 (人件費 ÷ 売上予算)
+  addSumRow(t("sgLaborRateRow"), (i) => {
+    const b = budgetOf(i);
+    return { text: b > 0 ? ((dayStats[i].labor / b) * 100).toFixed(1) + "%" : "-" };
+  }, budgetTotal > 0 ? ((grandLabor / budgetTotal) * 100).toFixed(1) + "%" : "-");
+
+  // 7. 人時売上高 (売上予算 ÷ 総時間)
+  addSumRow(t("sgSalesPerHourRow"), (i) => {
+    const b = budgetOf(i), h = dayStats[i].hours;
+    return { text: b > 0 && h > 0 ? fmtLabor(b / h) : "-" };
+  }, budgetTotal > 0 && grandHours > 0 ? fmtLabor(budgetTotal / grandHours) : "-");
+
+  // ---- ポジション別行 (予定h / モデルh) ----
+  const posLabel = (name, color) => {
+    const wrap = document.createElement("span");
+    wrap.className = "sg-pos-label";
+    const dot = document.createElement("span");
+    dot.className = "sg-dot";
+    dot.style.background = color;
+    wrap.appendChild(dot);
+    wrap.appendChild(document.createTextNode(name));
+    return wrap;
+  };
+  sgState.positions.forEach((p) => {
+    const arr = posHoursByDay[p.name];
+    const model = Number(p.modelHours) || 0;
+    const planTotal = arr.reduce((a, v) => a + v, 0);
+    addSumRow(posLabel(p.name, p.color), (i) => ({
+      text: (arr[i] || model) ? `${fmtHoursNum(arr[i])}/${fmtHoursNum(model)}` : "",
+    }), `${fmtHoursNum(planTotal)}/${fmtHoursNum(model * daysInMonth)}`, "sg-pos-row-line");
+  });
+  const unassignedTotal = unassignedByDay.reduce((a, v) => a + v, 0);
+  if (unassignedTotal > 0) {
+    addSumRow(posLabel("—", "#cbd5e1"), (i) => ({
+      text: unassignedByDay[i] ? fmtHoursNum(unassignedByDay[i]) : "",
+    }), fmtHoursNum(unassignedTotal), "sg-pos-row-line");
+  }
 
   // ---- 従業員行 ----
   userRows.forEach(({ u, cells, uHours, uDays }) => {
@@ -1320,6 +1457,10 @@ function renderShiftGrid() {
         const chip = document.createElement("div");
         chip.className = "sg-chip" + (p ? " sg-chip-pattern" : "");
         if (p) chip.style.background = p.color;
+        // ポジションが割り当てられていれば左端にポジション色のバーを出す
+        const pos = sgState.positions.find((pp) => pp.name === s.position);
+        if (pos) chip.style.boxShadow = `inset 3px 0 0 ${pos.color}`;
+        if (s.position) chip.title = s.position;
         chip.textContent = `${s.startTime}-${s.endTime}`;
         td.appendChild(chip);
       });
@@ -1347,9 +1488,37 @@ function openSgModal(userId, date) {
   document.getElementById("sgModalDate").textContent = formatShiftDate(date);
   renderSgModalShifts();
   renderSgModalPatterns();
+  // ポジション選択 (直近に使ったポジションを既定にする)
+  const posSel = document.getElementById("sgPosition");
+  posSel.innerHTML = '<option value="">' + t("posNone") + "</option>";
+  sgState.positions.forEach((p) => {
+    const o = document.createElement("option");
+    o.value = p.name;
+    o.textContent = p.name;
+    posSel.appendChild(o);
+  });
+  posSel.value = sgState.positions.some((p) => p.name === sgLastPosition)
+    ? sgLastPosition : "";
   document.getElementById("sgStart").value = "";
   document.getElementById("sgEnd").value = "";
   document.getElementById("sgModal").classList.remove("hidden");
+}
+
+// 売上予算の入力 (サマリー行のセルタップ)
+async function editSgBudget(date) {
+  if (!sgState.store) {
+    showToast(t("sgSelectStoreFirst"), "error");
+    return;
+  }
+  const cur = Number(sgState.budgets[date]) || 0;
+  const input = prompt(t("sgBudgetPrompt"), cur ? String(cur) : "");
+  if (input === null) return;
+  const v = parseFloat(String(input).replace(/[^\d.]/g, "")) || 0;
+  const r = await api("upsertShiftBudget", {
+    store: sgState.store, date, salesBudget: v,
+  });
+  if (r.success) await loadShiftGrid();
+  else showToast(r.message || t("msgError"), "error");
 }
 
 function closeSgModal() {
@@ -1367,7 +1536,10 @@ function renderSgModalShifts() {
     const chip = document.createElement("span");
     chip.className = "sg-chip" + (p ? " sg-chip-pattern" : "");
     if (p) chip.style.background = p.color;
-    chip.textContent = `${s.startTime}-${s.endTime}` + (p ? ` (${p.name})` : "");
+    const pos = sgState.positions.find((pp) => pp.name === s.position);
+    if (pos) chip.style.boxShadow = `inset 3px 0 0 ${pos.color}`;
+    chip.textContent = `${s.startTime}-${s.endTime}` +
+      (s.position ? ` · ${s.position}` : "") + (p ? ` (${p.name})` : "");
     const del = document.createElement("button");
     del.type = "button";
     del.className = "sg-del-btn";
@@ -1409,6 +1581,7 @@ async function sgRegister(startTime, endTime) {
     showToast(t("msgShiftInvalidTime"), "error");
     return;
   }
+  const position = document.getElementById("sgPosition").value;
   const r = await api("registerShift", {
     userId: sgModalCtx.userId,
     date: sgModalCtx.date,
@@ -1416,8 +1589,10 @@ async function sgRegister(startTime, endTime) {
     endTime,
     note: "",
     store: sgState.store,
+    position,
   });
   if (r.success) {
+    sgLastPosition = position;
     showToast(t("msgShiftRegistered"), "success");
     await loadShiftGrid();
     renderSgModalShifts();
@@ -1425,6 +1600,98 @@ async function sgRegister(startTime, endTime) {
     showToast(r.message || t("msgError"), "error");
   }
 }
+
+// ---- ポジション設定モーダル ----
+function sgPosRowEl(p) {
+  const row = document.createElement("div");
+  row.className = "sg-pos-row";
+  if (p) row.dataset.id = p.id;
+
+  const color = document.createElement("input");
+  color.type = "color";
+  color.className = "sg-pos-color";
+  color.value = p ? p.color : "#64748b";
+
+  const name = document.createElement("input");
+  name.type = "text";
+  name.className = "sg-pos-name tx-input";
+  name.maxLength = 40;
+  name.value = p ? p.name : "";
+
+  const model = document.createElement("input");
+  model.type = "number";
+  model.className = "sg-pos-model tx-input";
+  model.min = "0";
+  model.step = "0.25";
+  model.inputMode = "decimal";
+  model.value = p ? String(p.modelHours) : "0";
+
+  const del = document.createElement("button");
+  del.type = "button";
+  del.className = "sg-del-btn";
+  del.textContent = "×";
+  del.addEventListener("click", async () => {
+    if (row.dataset.id) {
+      if (!confirm(t("deleteConfirm"))) return;
+      const r = await api("deletePosition", { id: row.dataset.id });
+      if (!r.success) {
+        showToast(r.message || t("msgError"), "error");
+        return;
+      }
+    }
+    row.remove();
+  });
+
+  row.appendChild(color);
+  row.appendChild(name);
+  row.appendChild(model);
+  row.appendChild(del);
+  return row;
+}
+
+function openSgPosModal() {
+  if (!sgState.store) {
+    showToast(t("sgSelectStoreFirst"), "error");
+    return;
+  }
+  const list = document.getElementById("sgPosList");
+  list.innerHTML = "";
+  sgState.positions.forEach((p) => list.appendChild(sgPosRowEl(p)));
+  document.getElementById("sgPosModal").classList.remove("hidden");
+}
+
+function closeSgPosModal() {
+  document.getElementById("sgPosModal").classList.add("hidden");
+}
+
+async function saveSgPositions() {
+  const rows = Array.from(document.querySelectorAll("#sgPosList .sg-pos-row"));
+  for (const row of rows) {
+    const name = row.querySelector(".sg-pos-name").value.trim();
+    const color = row.querySelector(".sg-pos-color").value;
+    const modelHours = row.querySelector(".sg-pos-model").value || 0;
+    if (!name) continue;
+    const r = row.dataset.id
+      ? await api("updatePosition", { id: row.dataset.id, name, color, modelHours })
+      : await api("registerPosition", { store: sgState.store, name, color, modelHours });
+    if (!r.success && r.code !== "DUPLICATE") {
+      showToast(r.message || t("msgError"), "error");
+      return;
+    }
+  }
+  closeSgPosModal();
+  showToast(t("msgMasterRegistered"), "success");
+  await loadShiftGrid();
+}
+
+document.getElementById("sgPositionsBtn").addEventListener("click", openSgPosModal);
+document.getElementById("sgPosAddBtn").addEventListener("click", () => {
+  document.getElementById("sgPosList").appendChild(sgPosRowEl(null));
+});
+document.getElementById("sgPosSaveBtn").addEventListener("click", saveSgPositions);
+document.getElementById("sgPosModalClose").addEventListener("click", closeSgPosModal);
+document.getElementById("sgPosCancel").addEventListener("click", closeSgPosModal);
+document.querySelector("#sgPosModal .modal-backdrop").addEventListener("click", closeSgPosModal);
 
 document.getElementById("sgModalClose").addEventListener("click", closeSgModal);
 document.getElementById("sgModalCancel").addEventListener("click", closeSgModal);

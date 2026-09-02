@@ -174,6 +174,7 @@
               <input type="month" id="sgMonthInput" class="tx-input att-month-input" />
               <button type="button" id="sgNextMonth" class="btn btn-ghost month-btn">»</button>
               <button type="button" id="sgThisMonth" class="btn btn-ghost btn-sm" data-i18n="dashRangeThisMonth">今月</button>
+              <button type="button" id="sgPositionsBtn" class="btn btn-ghost btn-sm" data-i18n="sgPositionsBtn">⚙ ポジション</button>
             </div>
           </div>
           <div id="sgLegend" class="sg-legend"></div>
@@ -549,6 +550,8 @@
         </h3>
         <div id="sgModalShifts" class="sg-modal-shifts"></div>
         <h4 class="form-section" data-i18n="sgAddShift">シフトを追加</h4>
+        <label data-i18n="posLabel">ポジション</label>
+        <select id="sgPosition" class="tx-input"></select>
         <div id="sgModalPatterns" class="sg-pattern-btns"></div>
         <div class="form-row-2">
           <div>
@@ -562,6 +565,25 @@
         </div>
         <button type="button" id="sgAddCustom" class="btn btn-primary" data-i18n="registerShiftBtn">登録</button>
         <button type="button" id="sgModalCancel" class="btn btn-ghost btn-block" data-i18n="close">閉じる</button>
+      </div>
+    </div>
+
+    <!-- シフト表: ポジション設定モーダル -->
+    <div id="sgPosModal" class="modal hidden" aria-hidden="true">
+      <div class="modal-backdrop"></div>
+      <div class="modal-card modal-card-wide">
+        <button type="button" class="modal-close" id="sgPosModalClose">&times;</button>
+        <h3 data-i18n="posModalTitle">ポジション設定</h3>
+        <div class="sg-pos-head">
+          <span></span>
+          <span data-i18n="posName">ポジション名</span>
+          <span data-i18n="posModelHours">モデル時間/日</span>
+          <span></span>
+        </div>
+        <div id="sgPosList"></div>
+        <button type="button" id="sgPosAddBtn" class="btn btn-ghost btn-block" data-i18n="posAddBtn">+ ポジションを追加</button>
+        <button type="button" id="sgPosSaveBtn" class="btn btn-primary" data-i18n="saveBtn">保存</button>
+        <button type="button" id="sgPosCancel" class="btn btn-ghost btn-block" data-i18n="cancel">キャンセル</button>
       </div>
     </div>
 

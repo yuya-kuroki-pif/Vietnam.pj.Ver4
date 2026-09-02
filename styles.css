@@ -3373,3 +3373,73 @@ td.sg-today, th.sg-today { background: #fefce8 !important; }
   .sg-sticky-col { min-width: 78px; max-width: 96px; font-size: 10px; }
   .sg-chip { font-size: 9px; }
 }
+
+
+/* シフト表: 拡張サマリー行 */
+.sg-sum-row td.sg-editable {
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+.sg-budget-row td,
+.sg-budget-row td.sg-sticky-col {
+  background: #eff6ff;
+  color: #1e40af;
+}
+
+.sg-diff-over { color: #b91c1c !important; }
+.sg-diff-under { color: #1d4ed8 !important; }
+
+/* ポジション別行 */
+.sg-pos-row-line td,
+.sg-pos-row-line td.sg-sticky-col {
+  background: #fffdf5;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.sg-pos-row-line td.sg-sticky-col { font-weight: 600; }
+
+.sg-pos-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* ポジション設定モーダル */
+.sg-pos-head {
+  display: grid;
+  grid-template-columns: 42px 1fr 100px 36px;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+#sgPosList .sg-pos-row {
+  display: grid;
+  grid-template-columns: 42px 1fr 100px 36px;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+#sgPosList .sg-pos-row .tx-input { margin-bottom: 0; }
+
+.sg-pos-color {
+  width: 42px;
+  height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px;
+  background: #fff;
+  cursor: pointer;
+}
+
+#sgPosModal .btn { margin-top: 8px; }

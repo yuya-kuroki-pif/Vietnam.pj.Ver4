@@ -585,6 +585,7 @@ async function registerShift(body: Row) {
     note,
     createdAt: nowIso(),
     store,
+    position: str(body.position).trim(),
   });
   return { success: true };
 }
@@ -626,8 +627,114 @@ async function listShifts(body: Row) {
       endTime: str(r.endTime),
       note: r.note,
       store: str(r.store),
+      position: str(r.position),
     })),
   };
+}
+
+// ----------------------------------------------------------------
+// Positions (シフトのポジションマスタ) + 日別売上予算
+// ----------------------------------------------------------------
+async function listPositions(body: Row) {
+  const store = str(body.store);
+  const rows = await fetchAll("positions", (q) => (store ? q.eq("store", store) : q));
+  rows.sort((a, b) => {
+    const oa = _toNum(a.sortOrder), ob = _toNum(b.sortOrder);
+    if (oa !== ob) return oa - ob;
+    return str(a.name).localeCompare(str(b.name));
+  });
+  return {
+    success: true,
+    positions: rows.map((r) => ({
+      id: r.id,
+      store: str(r.store),
+      name: str(r.name),
+      color: str(r.color) || "#64748b",
+      modelHours: _toNum(r.modelHours),
+      sortOrder: _toNum(r.sortOrder),
+    })),
+  };
+}
+
+async function registerPosition(body: Row) {
+  const store = str(body.store).trim();
+  const name = str(body.name).trim();
+  if (!store || !name) return { success: false, message: "Missing fields" };
+  const rows = await fetchAll("positions", (q) => q.eq("store", store));
+  const lower = name.toLowerCase();
+  if (rows.some((r) => str(r.name).trim().toLowerCase() === lower)) {
+    return { success: false, code: "DUPLICATE", message: "Position already exists" };
+  }
+  const id = uuid();
+  await insertRow("positions", {
+    id,
+    store,
+    name,
+    color: str(body.color) || "#64748b",
+    modelHours: _toNum(body.modelHours),
+    sortOrder: body.sortOrder !== undefined ? _toNum(body.sortOrder) : (rows.length + 1) * 10,
+    createdAt: nowIso(),
+  });
+  return { success: true, id };
+}
+
+async function updatePosition(body: Row) {
+  const id = str(body.id);
+  if (!id) return { success: false, message: "Missing id" };
+  const patch: Row = {};
+  if (body.name !== undefined) {
+    const name = str(body.name).trim();
+    if (!name) return { success: false, message: "Name required" };
+    patch.name = name;
+  }
+  if (body.color !== undefined) patch.color = str(body.color) || "#64748b";
+  if (body.modelHours !== undefined) patch.modelHours = _toNum(body.modelHours);
+  if (body.sortOrder !== undefined) patch.sortOrder = _toNum(body.sortOrder);
+  await updateRow("positions", id, patch);
+  return { success: true };
+}
+
+async function deletePosition(body: Row) {
+  return await deleteById("positions", str(body.id));
+}
+
+async function listShiftBudgets(body: Row) {
+  const store = str(body.store);
+  const year = parseInt(str(body.year), 10);
+  const month = parseInt(str(body.month), 10);
+  if (!year || !month) return { success: false, message: "Missing year/month" };
+  const prefix = ymStr(year, month);
+  const rows = await fetchAll("shift_budgets", (q) => {
+    q = q.gte("date", prefix + "-01").lte("date", prefix + "-31");
+    if (store) q = q.eq("store", store);
+    return q;
+  });
+  // 全店舗表示のときは日別に合算する
+  const byDate: Record<string, number> = {};
+  rows.forEach((r) => {
+    const d = str(r.date);
+    byDate[d] = (byDate[d] || 0) + _toNum(r.salesBudget);
+  });
+  return { success: true, budgets: byDate };
+}
+
+async function upsertShiftBudget(body: Row) {
+  const store = str(body.store).trim();
+  const date = str(body.date);
+  const salesBudget = _toNum(body.salesBudget);
+  if (!store || !date) return { success: false, message: "Missing fields" };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { success: false, message: "Invalid date" };
+  const { data: existing, error } = await supabase
+    .from("shift_budgets").select("id").eq("store", store).eq("date", date).maybeSingle();
+  if (error) throw new Error("shift_budgets: " + error.message);
+  if (existing) {
+    await updateRow("shift_budgets", str(existing.id), { salesBudget });
+  } else {
+    await insertRow("shift_budgets", {
+      id: uuid(), store, date, salesBudget, createdAt: nowIso(),
+    });
+  }
+  return { success: true };
 }
 
 async function deleteShift(body: Row) {
@@ -2155,6 +2262,12 @@ const HANDLERS: Record<string, (body: Row) => Promise<unknown>> = {
   deleteShift,
   getPatterns,
   savePatterns,
+  listPositions,
+  registerPosition,
+  updatePosition,
+  deletePosition,
+  listShiftBudgets,
+  upsertShiftBudget,
   listPurchases,
   registerPurchase,
   registerPurchaseBatch,
