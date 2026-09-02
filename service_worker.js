@@ -13,7 +13,7 @@
 //   3. 古いキャッシュは activate 時に削除
 //   4. ユーザーは「ハードリロードや キャッシュ削除」をしなくても自然に最新版に切り替わる
 
-const CACHE_NAME = "kintai-v27";
+const CACHE_NAME = "kintai-v28";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
@@ -56,8 +56,9 @@ self.addEventListener("fetch", (event) => {
   // Skip non-http(s) schemes (chrome-extension://, data:, blob:, etc).
   if (!url.startsWith("http://") && !url.startsWith("https://")) return;
 
-  // Skip the Apps Script API — always direct to network, never cache.
-  if (url.indexOf("script.google.com") !== -1 ||
+  // Skip the API (Supabase / 旧Apps Script) — always direct to network, never cache.
+  if (url.indexOf("supabase.co") !== -1 ||
+      url.indexOf("script.google.com") !== -1 ||
       url.indexOf("googleusercontent.com") !== -1) {
     return;
   }

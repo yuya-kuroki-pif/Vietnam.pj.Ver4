@@ -16,7 +16,32 @@
       "Bash(node test_wiring.js)",
       "Bash(node sample_csv.js)",
       "Bash(cp Code.gs \"C:/Users/stn12/AppData/Local/Temp/claude/c--Users-stn12-Desktop-Vietnam-pj/66e02e98-34ce-407b-b9e1-fdc29e57474d/scratchpad/Code.check.js\")",
-      "Bash(node --check \"C:/Users/stn12/AppData/Local/Temp/claude/c--Users-stn12-Desktop-Vietnam-pj/66e02e98-34ce-407b-b9e1-fdc29e57474d/scratchpad/Code.check.js\")"
+      "Bash(node --check \"C:/Users/stn12/AppData/Local/Temp/claude/c--Users-stn12-Desktop-Vietnam-pj/66e02e98-34ce-407b-b9e1-fdc29e57474d/scratchpad/Code.check.js\")",
+      "mcp__claude_ai_Supabase__get_project",
+      "mcp__claude_ai_Supabase__list_tables",
+      "mcp__claude_ai_Supabase__list_edge_functions",
+      "mcp__claude_ai_Supabase__execute_sql",
+      "mcp__claude_ai_Supabase__apply_migration",
+      "mcp__claude_ai_Supabase__deploy_edge_function",
+      "Bash(curl -s -X POST https://yczwdkkuaitlbvtskmsf.supabase.co/functions/v1/api -H 'Content-Type: text/plain;charset=utf-8' -d '{\"action\":\"__ping__\"}')",
+      "Bash(curl -s -X POST https://yczwdkkuaitlbvtskmsf.supabase.co/functions/v1/api -H 'Content-Type: text/plain;charset=utf-8' -d '{\"action\":\"getPatterns\"}')",
+      "Bash(curl -s -X POST https://yczwdkkuaitlbvtskmsf.supabase.co/functions/v1/api -H 'Content-Type: text/plain;charset=utf-8' -d '{\"action\":\"register\",\"name\":\"TEST_USER\",\"role\":\"parttime\",\"hourlyRate\":30000,\"store\":\"ROBATA NARU\"}')",
+      "Bash(curl -sL -X POST https://script.google.com/macros/s/AKfycbzKtUuYSW1XYR1bn30IX5aZWyN4ayBYGGlGgZiMntYDwCEwpQ4ohqU4rUqnca2CHXC-/exec -H 'Content-Type: text/plain;charset=utf-8' -d '{\"action\":\"listUsers\"}')",
+      "Bash(curl -sL https://script.google.com/macros/s/AKfycbzKtUuYSW1XYR1bn30IX5aZWyN4ayBYGGlGgZiMntYDwCEwpQ4ohqU4rUqnca2CHXC-/exec -H 'Content-Type: text/plain;charset=utf-8' -d '{\"action\":\"listUsers\"}')",
+      "mcp__claude_ai_Google_Drive__search_files",
+      "mcp__claude_ai_Google_Drive__download_file_content",
+      "Read(//c/Users/stn12/AppData/Local/Temp/claude/c--Users-stn12-Desktop-00-------000-------40---------------------Vietnam-pj-Ver4/b44d1b6c-d79c-43f4-9dfb-c57034944dd0/scratchpad/**)",
+      "Bash(python -)",
+      "Bash(python -c \"import openpyxl; print\\('openpyxl ok'\\)\")",
+      "Bash(pip install *)",
+      "Bash(PYTHONIOENCODING=utf-8 python -)",
+      "Bash(PYTHONIOENCODING=utf-8 python migrate.py)",
+      "Bash(python -c \"import secrets; print\\(secrets.token_hex\\(24\\)\\)\")",
+      "Bash(PYTHONIOENCODING=utf-8 python upload.py)",
+      "Bash(curl -s https://yczwdkkuaitlbvtskmsf.supabase.co/functions/v1/api -H 'Content-Type: text/plain;charset=utf-8' -d '{\"action\":\"listUsers\"}')",
+      "Bash(python -c ' *)",
+      "Bash(curl -sL https://script.google.com/macros/s/AKfycbzKtUuYSW1XYR1bn30IX5aZWyN4ayBYGGlGgZiMntYDwCEwpQ4ohqU4rUqnca2CHXC-/exec -H 'Content-Type: text/plain;charset=utf-8' -d '{\"action\":\"listAttendance\",\"dateFrom\":\"2026-09-01\",\"dateTo\":\"2026-09-03\"}' -o /tmp/gas_today.json)",
+      "mcp__claude_ai_Supabase__get_advisors"
     ]
   }
 }
