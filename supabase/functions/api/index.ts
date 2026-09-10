@@ -870,7 +870,9 @@ async function _upsertInventoryItem(
 
   const nowStr = nowIso();
   if (existing) {
-    const patch: Row = { updatedAt: nowStr, lastPurchaseDate: nowStr };
+    // 仕入れがあった品目は非表示 (archived) でも再表示する —
+    // 2026-09-10 の候補一括非表示後、新ルールで仕入れた名前だけが蘇る。
+    const patch: Row = { updatedAt: nowStr, lastPurchaseDate: nowStr, archived: false };
     if (unitPrice > 0) patch.lastUnitPrice = unitPrice;
     if (vendor) patch.lastVendor = vendor;
     if (category) patch.category = category;
@@ -1155,6 +1157,10 @@ async function listVendors(_body: Row) {
   return { success: true, vendors: names };
 }
 
+// 2026-09-10 運用ルール変更: これより前に登録された商品名は入力候補に出さない。
+// 以降は納品書・出庫伝票と完全一致する原材料名のみが蓄積・提案される。
+const PRODUCT_SUGGESTION_CUTOFF = "2026-09-10";
+
 async function listProductNames(_body: Row) {
   const seen: Record<string, { name: string; date: string }> = {};
   const items: { name: string; date: string }[] = [];
@@ -1173,8 +1179,8 @@ async function listProductNames(_body: Row) {
       items.push(seen[key]);
     });
   }
-  collect(await fetchAll("purchases"));
-  collect(await fetchAll("petty_cash"));
+  collect(await fetchAll("purchases", (q) => q.gte("date", PRODUCT_SUGGESTION_CUTOFF)));
+  collect(await fetchAll("petty_cash", (q) => q.gte("date", PRODUCT_SUGGESTION_CUTOFF)));
 
   items.sort((a, b) => {
     if (a.date !== b.date) return a.date < b.date ? 1 : -1;
@@ -1763,10 +1769,14 @@ async function getDashboard(body: Row) {
   (await fetchAll("petty_cash", (q) =>
     q.eq("store", store).gte("date", dateFrom).lte("date", dateTo))).forEach((r) => {
     const cat = str(r.category);
-    if (cat !== "purchaseFood" && cat !== "purchaseDrink") return;
+    // 2026-09-10 科目改定: foodCost/drinkCost が新コード。
+    // purchaseFood/purchaseDrink は旧データ用に引き続き算入する。
+    const isFood = cat === "foodCost" || cat === "purchaseFood";
+    const isDrink = cat === "drinkCost" || cat === "purchaseDrink";
+    if (!isFood && !isDrink) return;
     let amt = _toNum(r.amount);
     if ((str(r.type) || "out") === "in") amt = -amt;
-    if (cat === "purchaseFood") pettyFoodPurchases += amt;
+    if (isFood) pettyFoodPurchases += amt;
     else pettyDrinkPurchases += amt;
   });
   foodPurchases += pettyFoodPurchases;
@@ -1995,7 +2005,15 @@ async function registerInventoryItem(body: Row) {
 
   const rows = await fetchAll("inventory_items", (q) => q.eq("store", store));
   const lower = productName.toLowerCase();
-  if (rows.some((r) => str(r.productName).trim().toLowerCase() === lower)) {
+  const existing = rows.find((r) => str(r.productName).trim().toLowerCase() === lower);
+  if (existing) {
+    // 同名の非表示品目があれば再表示して再利用する
+    if (existing.archived === true) {
+      await updateRow("inventory_items", str(existing.id), {
+        archived: false, updatedAt: nowIso(),
+      });
+      return { success: true, id: existing.id };
+    }
     return { success: false, code: "DUPLICATE", message: "Item already exists" };
   }
   const id = uuid();

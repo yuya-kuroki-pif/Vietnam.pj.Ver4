@@ -384,6 +384,13 @@ const I18N = {
     catEntertainment: "Tiếp khách",
     catBankFee: "Phí ngân hàng",
     catOther: "Khác",
+    catFoodCost: "Chi phí thực phẩm",
+    catDrinkCost: "Chi phí đồ uống",
+    catEquipmentCost: "Thiết bị & vật tư",
+    catConsumablesCost: "Vật tư tiêu hao",
+    catStaffMealCost: "Cơm nhân viên",
+    catFee: "Phí",
+    purchaseNameRule: "⚠ Nhập tên nguyên liệu trùng khớp hoàn toàn với phiếu giao hàng / phiếu xuất kho của nhà cung cấp.",
     unitPriceInclTax: "Đơn giá (có thuế)",
     paymentStatus: "Trạng thái thanh toán",
     payStatusPaid: "Đã thanh toán",
@@ -803,6 +810,13 @@ const I18N = {
     catEntertainment: "接待交際費",
     catBankFee: "支払手数料",
     catOther: "その他",
+    catFoodCost: "食材費",
+    catDrinkCost: "飲料費",
+    catEquipmentCost: "備品・資材費",
+    catConsumablesCost: "消耗品費",
+    catStaffMealCost: "まかない費",
+    catFee: "手数料",
+    purchaseNameRule: "⚠ サプライヤーの納品書・出庫伝票と完全に一致する原材料名で入力してください。",
     unitPriceInclTax: "単価（税込）",
     paymentStatus: "支払状況",
     payStatusPaid: "支払済",
@@ -3728,6 +3742,14 @@ const CSV_PURCHASE_CATEGORY = {
 
 // 小口の科目 → Danh Mục
 const CSV_PETTY_CATEGORY = {
+  // 2026-09-10 改定後の科目
+  foodCost: "Thực phẩm",
+  drinkCost: "Đồ uống",
+  equipmentCost: "Thiết bị & vật tư",
+  consumablesCost: "Vật tư tiêu hao",
+  staffMealCost: "Cơm nhân viên",
+  fee: "Phí",
+  // 旧科目 (過去データの出力用に残す)
   purchaseFood: "Thực phẩm",
   purchaseDrink: "Đồ uống",
   reserveDeposit: "Nạp quỹ chuẩn bị",

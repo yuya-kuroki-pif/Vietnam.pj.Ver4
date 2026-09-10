@@ -791,6 +791,8 @@
     <div class="modal-card modal-card-wide">
       <button type="button" class="modal-close" id="purchaseClose">&times;</button>
       <h3 data-i18n="purchaseModalTitle">Đăng ký mua hàng</h3>
+      <!-- 2026-09-10 運用ルール: 原材料名は納品書・出庫伝票と完全一致させる -->
+      <div class="name-rule-banner" data-i18n="purchaseNameRule">⚠ サプライヤーの納品書・出庫伝票と完全に一致する原材料名で入力してください。</div>
       <form id="purchaseForm">
         <div class="form-row-2">
           <div>
@@ -948,17 +950,16 @@
             <button type="button" class="batch-item-remove" title="削除" data-i18n-title="colDelete">×</button>
           </div>
           <label><span data-i18n="category">Khoản mục</span><span class="required">*</span></label>
+          <!-- 2026-09-10 科目改定: 実務に合わせた7科目に整理。
+               旧科目 (purchaseFood 等) は過去データの表示用にコードだけ残る。 -->
           <select data-field="category" required>
             <option value=""></option>
-            <option value="purchaseFood" data-i18n="catPurchaseFood">Mua hàng (đồ ăn)</option>
-            <option value="purchaseDrink" data-i18n="catPurchaseDrink">Mua hàng (đồ uống)</option>
-            <option value="reserveDeposit" data-i18n="catReserveDeposit">Nạp quỹ chuẩn bị</option>
-            <option value="utilities" data-i18n="catUtilities">Điện nước</option>
-            <option value="communication" data-i18n="catCommunication">Viễn thông</option>
-            <option value="supplies" data-i18n="catOfficeSupplies">Văn phòng phẩm</option>
-            <option value="travel" data-i18n="catTravel">Đi lại</option>
-            <option value="entertainment" data-i18n="catEntertainment">Tiếp khách</option>
-            <option value="bankFee" data-i18n="catBankFee">Phí ngân hàng</option>
+            <option value="foodCost" data-i18n="catFoodCost">Chi phí thực phẩm</option>
+            <option value="drinkCost" data-i18n="catDrinkCost">Chi phí đồ uống</option>
+            <option value="equipmentCost" data-i18n="catEquipmentCost">Thiết bị &amp; vật tư</option>
+            <option value="consumablesCost" data-i18n="catConsumablesCost">Vật tư tiêu hao</option>
+            <option value="staffMealCost" data-i18n="catStaffMealCost">Cơm nhân viên</option>
+            <option value="fee" data-i18n="catFee">Phí</option>
             <option value="other" data-i18n="catOther">Khác</option>
           </select>
           <label data-i18n="subCategory">Khoản mục phụ</label>

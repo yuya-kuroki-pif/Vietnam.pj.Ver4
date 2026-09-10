@@ -3499,3 +3499,16 @@ input[type="time"]::-webkit-date-and-time-value {
   text-align: left;
   margin: 0;
 }
+
+
+/* 仕入れモーダル: 原材料名の入力ルール注意バナー (2026-09-10 運用変更) */
+.name-rule-banner {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  color: #92400e;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 10px 0 12px;
+}
