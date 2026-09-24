@@ -355,19 +355,20 @@
 
           <div class="form-row-2">
             <div>
-              <label data-i18n="monthlySalary">Lương tháng (tham khảo)</label>
+              <label data-i18n="monthlySalary">Lương tháng (cơ sở tính bảo hiểm)</label>
               <div class="currency-input">
                 <input type="number" id="regSalary" min="0" step="100000" inputmode="numeric" />
                 <span class="currency-suffix" data-i18n="currencyPerMonth">VND/tháng</span>
               </div>
             </div>
             <div>
-              <label data-i18n="socialInsurance">Bảo hiểm công ty đóng (BHXH/BHYT/BHTN)</label>
+              <label data-i18n="socialInsuranceRate">Tỷ lệ bảo hiểm công ty đóng (% lương tháng)</label>
               <div class="currency-input">
-                <input type="number" id="regSocialInsurance" min="0" step="1000" inputmode="numeric" />
-                <span class="currency-suffix" data-i18n="currencyPerMonth">VND/tháng</span>
+                <input type="number" id="regInsuranceRate" min="0" max="100" step="0.1" inputmode="decimal" value="28" />
+                <span class="currency-suffix">%</span>
               </div>
-              <button type="button" id="regInsuranceCalc" class="btn btn-ghost btn-inline" data-i18n="insuranceCalcBtn">= Lương tháng × 21.5%</button>
+              <!-- 月給 × 率 の算出額をリアルタイム表示 (app.js updateInsurancePreview) -->
+              <div class="form-hint" id="regInsurancePreview"></div>
             </div>
           </div>
 

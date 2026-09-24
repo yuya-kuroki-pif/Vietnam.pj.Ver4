@@ -62,18 +62,20 @@ const I18N = {
     salaryFormHourly: "Theo giờ",
     salaryFormDaily: "Theo ngày",
     salaryFormMonthly: "Theo tháng",
-    monthlySalary: "Lương tháng (tham khảo)",
+    monthlySalary: "Lương tháng (cơ sở tính bảo hiểm)",
     currencyPerMonth: "VND/tháng",
     perMonthSuffix: "/tháng",
     transportAllowance: "Phụ cấp đi lại (xăng xe)",
     parkingFee: "Phí gửi xe",
     socialInsurance: "Bảo hiểm công ty đóng (BHXH/BHYT/BHTN)",
-    insuranceCalcBtn: "= Lương tháng × 21.5%",
-    msgSalaryRequiredForCalc: "Hãy nhập lương tháng trước.",
+    socialInsuranceRate: "Tỷ lệ bảo hiểm công ty đóng (% lương tháng)",
+    insurancePreviewFmt: "= {amount} VND/tháng (lương tháng × {rate}%)",
+    insurancePreviewNoSalary: "Lương tháng = 0 nên bảo hiểm = 0",
+    insurancePreviewNotMonthly: "Chỉ tính cho nhân viên lương tháng (hiện tại = 0)",
     otherAllowance: "Phụ cấp khác (ăn, nhà ở...)",
     allowanceNote: "Ghi chú phụ cấp",
     rateHint: "Chi phí nhân công cơ bản = lương ngày × số ngày công (ưu tiên) hoặc lương giờ × số giờ. Nhân viên lương tháng: nhập lương ngày ước tính (lương tháng ÷ số ngày công chuẩn).",
-    fixedCostHint: "Các khoản theo tháng (đi lại, gửi xe, bảo hiểm, phụ cấp khác) được chia theo số ngày công trong tháng và tính vào cửa hàng trực thuộc. Tháng không có ngày công thì không tính.",
+    fixedCostHint: "Bảo hiểm công ty đóng = lương tháng × tỷ lệ (mặc định 28%, chỉ nhân viên lương tháng). Các khoản theo tháng (đi lại, gửi xe, bảo hiểm, phụ cấp khác) được chia theo số ngày công trong tháng và tính vào cửa hàng trực thuộc. Tháng không có ngày công thì không tính.",
     masterFixedCost: "Khoản cố định/tháng",
     dashTransportLabor: "Đi lại + gửi xe",
     dashInsuranceLabor: "Bảo hiểm (công ty đóng)",
@@ -520,18 +522,20 @@ const I18N = {
     salaryFormHourly: "時給制",
     salaryFormDaily: "日給制",
     salaryFormMonthly: "月給制",
-    monthlySalary: "月給（参考）",
+    monthlySalary: "月給（社会保険の算定基礎）",
     currencyPerMonth: "VND/月",
     perMonthSuffix: "/月",
     transportAllowance: "交通費（通勤手当）",
     parkingFee: "駐車場代",
     socialInsurance: "社会保険 会社負担分（BHXH/BHYT/BHTN）",
-    insuranceCalcBtn: "= 月給 × 21.5%",
-    msgSalaryRequiredForCalc: "先に月給を入力してください。",
+    socialInsuranceRate: "社会保険 会社負担率（月給に対する%）",
+    insurancePreviewFmt: "= {amount} VND/月（月給 × {rate}%）",
+    insurancePreviewNoSalary: "月給が 0 のため社会保険は 0 です",
+    insurancePreviewNotMonthly: "月給制の従業員のみ算出します（現在は 0）",
     otherAllowance: "その他手当（食事・住宅など）",
     allowanceNote: "手当メモ",
     rateHint: "基本給の計算は 日給×出勤日数（優先）または 時給×労働時間 です。月給者は概算日給（月給÷所定労働日数）を日給に入力してください。",
-    fixedCostHint: "月額項目（交通費・駐車場代・社会保険・その他手当）は当月の出勤日数で日割りし、所属店舗の人件費に自動計上されます。出勤の無い月には計上されません。",
+    fixedCostHint: "社会保険 会社負担 = 月給 × 率（初期値 28%）で自動算出します（月給制のみ）。月額項目（交通費・駐車場代・社会保険・その他手当）は当月の出勤日数で日割りし、所属店舗の人件費に自動計上されます。出勤の無い月には計上されません。",
     masterFixedCost: "月額固定（交通・駐車・社保・手当）",
     dashTransportLabor: "交通費・駐車場代",
     dashInsuranceLabor: "社会保険（会社負担）",
@@ -1881,17 +1885,30 @@ document.getElementById("cancelRegisterBtn").addEventListener("click", () => {
   loadUserMaster();
 });
 
-// 社会保険 会社負担の目安。ベトナムの使用者負担率 (2026-09 時点):
-//   BHXH 社会保険 17.5% + BHYT 医療保険 3% + BHTN 失業保険 1% = 21.5% (労組費 2% は含まず)
-const VN_EMPLOYER_INSURANCE_RATE = 0.215;
-document.getElementById("regInsuranceCalc").addEventListener("click", () => {
+// 社会保険 会社負担 = 月給 × 率。率の初期値は 28% (2026-09-24 決定。法定率 21.5% に
+// 労組費等を上乗せした運用値)。算出はバックエンド (_socialInsuranceMonthly) と同じ式。
+const DEFAULT_SOCIAL_INSURANCE_RATE = 28;
+function updateInsurancePreview() {
   const salary = Number(document.getElementById("regSalary").value) || 0;
-  if (!salary) {
-    showToast(t("msgSalaryRequiredForCalc"), "error");
+  const rateEl = document.getElementById("regInsuranceRate");
+  const rate = rateEl.value === "" ? DEFAULT_SOCIAL_INSURANCE_RATE : (Number(rateEl.value) || 0);
+  const el = document.getElementById("regInsurancePreview");
+  const form = document.getElementById("regSalaryForm").value;
+  if (form !== "monthly") {
+    el.textContent = t("insurancePreviewNotMonthly");
     return;
   }
-  document.getElementById("regSocialInsurance").value = Math.round(salary * VN_EMPLOYER_INSURANCE_RATE);
-});
+  if (!salary) {
+    el.textContent = t("insurancePreviewNoSalary");
+    return;
+  }
+  el.textContent = t("insurancePreviewFmt")
+    .replace("{amount}", Math.round(salary * rate / 100).toLocaleString("vi-VN"))
+    .replace("{rate}", rate);
+}
+document.getElementById("regSalary").addEventListener("input", updateInsurancePreview);
+document.getElementById("regInsuranceRate").addEventListener("input", updateInsurancePreview);
+document.getElementById("regSalaryForm").addEventListener("change", updateInsurancePreview);
 
 document.getElementById("registerForm").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -1918,7 +1935,9 @@ document.getElementById("registerForm").addEventListener("submit", async (e) => 
     salary: document.getElementById("regSalary").value || 0,
     transportationExpenses: document.getElementById("regTransport").value || 0,
     parkingFee: document.getElementById("regParking").value || 0,
-    socialInsurance: document.getElementById("regSocialInsurance").value || 0,
+    socialInsuranceRate: document.getElementById("regInsuranceRate").value === ""
+      ? DEFAULT_SOCIAL_INSURANCE_RATE
+      : document.getElementById("regInsuranceRate").value,
     otherAllowance: document.getElementById("regOtherAllowance").value || 0,
     allowanceNote: $("regAllowanceNote"),
   };
@@ -4531,6 +4550,7 @@ document.getElementById("newUserBtn").addEventListener("click", () => {
   setRegisterMode(false);
   showScreen("registerScreen");
   fillRegStoreOptions();
+  updateInsurancePreview();
 });
 
 // 既存ユーザーの編集: 全プロフィールを取得して登録フォームに流し込む
@@ -4572,7 +4592,9 @@ async function openUserEdit(id) {
   set("regSalary", u.salaryForm === "monthly" ? (u.salary || "") : "");
   set("regTransport", u.transportationExpenses || "");
   set("regParking", u.parkingFee || "");
-  set("regSocialInsurance", u.socialInsurance || "");
+  set("regInsuranceRate", (u.socialInsuranceRate === undefined || u.socialInsuranceRate === null)
+    ? DEFAULT_SOCIAL_INSURANCE_RATE : u.socialInsuranceRate);
+  updateInsurancePreview();
   set("regOtherAllowance", u.otherAllowance || "");
   set("regAllowanceNote", u.allowanceNote || "");
 }

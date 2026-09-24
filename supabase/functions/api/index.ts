@@ -85,8 +85,22 @@ function _normSalaryForm(v: unknown): string {
 
 // 従業員マスタの給与・手当 (月額) 列。人件費集計に自動計上される。
 const USER_MONEY_FIELDS = [
-  "salary", "transportationExpenses", "parkingFee", "socialInsurance", "otherAllowance",
+  "salary", "transportationExpenses", "parkingFee", "socialInsuranceRate", "otherAllowance",
 ] as const;
+
+// 社会保険 会社負担 (月額) = 月給 × 率。率は従業員ごと (users.socialInsuranceRate、既定 28%)。
+// 2026-09-24: 手入力金額 (users.socialInsurance 列) から倍率方式に変更。旧列は未使用。
+const DEFAULT_SOCIAL_INSURANCE_RATE = 28;
+
+function _socialInsuranceMonthly(u: Row): number {
+  // 月給制の従業員のみ対象。時給制/日給制は旧CSV取込で salary 列に時給が入っている
+  // ケースがあるため、給与形態で明示的に絞る。
+  if (_normSalaryForm(u.salaryForm) !== "monthly") return 0;
+  const rate = u.socialInsuranceRate === null || u.socialInsuranceRate === undefined || u.socialInsuranceRate === ""
+    ? DEFAULT_SOCIAL_INSURANCE_RATE
+    : _toNum(u.socialInsuranceRate);
+  return Math.round(_toNum(u.salary) * rate / 100);
+}
 
 function _userPayFields(u: Row): Row {
   return {
@@ -94,7 +108,10 @@ function _userPayFields(u: Row): Row {
     salary: _toNum(u.salary),
     transportationExpenses: _toNum(u.transportationExpenses),
     parkingFee: _toNum(u.parkingFee),
-    socialInsurance: _toNum(u.socialInsurance),
+    socialInsuranceRate: u.socialInsuranceRate === null || u.socialInsuranceRate === undefined || u.socialInsuranceRate === ""
+      ? DEFAULT_SOCIAL_INSURANCE_RATE
+      : _toNum(u.socialInsuranceRate),
+    socialInsurance: _socialInsuranceMonthly(u), // 算出値 (月額)。表示用
     otherAllowance: _toNum(u.otherAllowance),
     allowanceNote: str(u.allowanceNote),
   };
@@ -1548,7 +1565,7 @@ async function buildAttendanceBreakdown(
       dailyRate: _toNum(u.dailyRate),
       transport: _toNum(u.transportationExpenses),
       parking: _toNum(u.parkingFee),
-      insurance: _toNum(u.socialInsurance),
+      insurance: _socialInsuranceMonthly(u),
       allowance: _toNum(u.otherAllowance),
     };
   });
