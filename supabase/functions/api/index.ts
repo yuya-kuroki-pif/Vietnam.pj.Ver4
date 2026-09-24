@@ -73,6 +73,33 @@ function str(v: unknown): string {
   return v === null || v === undefined ? "" : String(v);
 }
 
+// 給与形態 ("monthly" | "daily" | "hourly" | "")。旧CSV取込値 "Monthly salary" 等も吸収する。
+function _normSalaryForm(v: unknown): string {
+  const t = str(v).trim().toLowerCase();
+  if (!t) return "";
+  if (t.startsWith("month")) return "monthly";
+  if (t.startsWith("dai")) return "daily";
+  if (t.startsWith("hour")) return "hourly";
+  return "";
+}
+
+// 従業員マスタの給与・手当 (月額) 列。人件費集計に自動計上される。
+const USER_MONEY_FIELDS = [
+  "salary", "transportationExpenses", "parkingFee", "socialInsurance", "otherAllowance",
+] as const;
+
+function _userPayFields(u: Row): Row {
+  return {
+    salaryForm: _normSalaryForm(u.salaryForm),
+    salary: _toNum(u.salary),
+    transportationExpenses: _toNum(u.transportationExpenses),
+    parkingFee: _toNum(u.parkingFee),
+    socialInsurance: _toNum(u.socialInsurance),
+    otherAllowance: _toNum(u.otherAllowance),
+    allowanceNote: str(u.allowanceNote),
+  };
+}
+
 // "yyyy-MM-dd" + "HH:mm[:ss]" → ISO +07:00 (キオスクはベトナム現地時刻で入力)
 function _composeTs(date: string, time: string): string {
   let t = String(time || "");
@@ -200,6 +227,7 @@ async function registerUser(body: Row) {
     hourlyRate: _toNum(body.hourlyRate),
     dailyRate: _toNum(body.dailyRate),
     store: str(body.store).trim(),
+    ..._userPayFields(body),
   });
 
   return { success: true, user: { id, name, email, role } };
@@ -225,6 +253,7 @@ async function listUsers(_body: Row) {
       hourlyRate: _toNum(u.hourlyRate),
       dailyRate: _toNum(u.dailyRate),
       hireDate: str(u.hireDate).trim(),
+      ..._userPayFields(u),
     })),
   };
 }
@@ -259,6 +288,7 @@ async function getUser(body: Row) {
       hourlyRate: _toNum(u.hourlyRate),
       dailyRate: _toNum(u.dailyRate),
       store: str(u.store),
+      ..._userPayFields(u),
     },
   };
 }
@@ -307,6 +337,11 @@ async function updateUser(body: Row) {
   }
   if (body.hourlyRate !== undefined) patch.hourlyRate = _toNum(body.hourlyRate);
   if (body.dailyRate !== undefined) patch.dailyRate = _toNum(body.dailyRate);
+  if (body.salaryForm !== undefined) patch.salaryForm = _normSalaryForm(body.salaryForm);
+  for (const k of USER_MONEY_FIELDS) {
+    if (body[k] !== undefined) patch[k] = _toNum(body[k]);
+  }
+  if (body.allowanceNote !== undefined) patch.allowanceNote = str(body.allowanceNote).trim();
 
   await updateRow("users", id, patch);
   return { success: true };
@@ -1461,11 +1496,23 @@ interface BreakdownRow {
   isAway: boolean;
   days: number;
   minutes: number;
-  cost: number;
+  cost: number;        // baseCost + fixedCost
+  baseCost: number;    // 時給×時間 / 日給×日数
+  transport: number;   // 交通費 (月額を出勤日で按分)
+  parking: number;     // 駐車場代 (同上)
+  insurance: number;   // 社会保険 会社負担 (同上)
+  allowance: number;   // その他手当 (同上)
+  fixedCost: number;   // transport + parking + insurance + allowance
   rateType: string;
   rate: number;
   hours: number;
 }
+
+// 月額固定項目 (交通費・駐車場代・社会保険・その他手当) の按分ルール:
+//   その月に出勤実績がある従業員のみ対象。月額 ÷ 当月の出勤日数 を 1 出勤日あたりの
+//   金額とし、集計範囲内の出勤日数分を所属店舗 (未設定なら範囲内で最も出勤した店舗) に計上する。
+//   → 月全体では月額ちょうどになり、日別・期間別に見ても整合する。退職済み等で
+//     出勤が無い月には計上されない (必要なら「その他人件費」で手入力)。
 
 async function buildAttendanceBreakdown(
   year: number, month: number, dateFrom?: string, dateTo?: string,
@@ -1480,13 +1527,17 @@ async function buildAttendanceBreakdown(
   }
 
   // 深夜跨ぎシフトのペアリング用に対象範囲の前後2日分まで読む。
+  // 月額固定項目の按分に「当月の出勤日数」が要るので、範囲指定時も対象月全体を読む。
   const scopeFrom = hasRange ? dateFrom! : targetYM + "-01";
   const scopeTo = hasRange ? dateTo! : targetYM + "-31";
-  const effFrom = addDays(scopeFrom, -2);
-  const effTo = addDays(scopeTo, 2);
+  const monthFrom = targetYM + "-01";
+  const monthTo = targetYM + "-31";
+  const effFrom = addDays(scopeFrom < monthFrom ? scopeFrom : monthFrom, -2);
+  const effTo = addDays(scopeTo > monthTo ? scopeTo : monthTo, 2);
 
   const userMap: Record<string, {
     name: string; role: string; homeStore: string; hourlyRate: number; dailyRate: number;
+    transport: number; parking: number; insurance: number; allowance: number;
   }> = {};
   (await fetchAll("users")).forEach((u) => {
     userMap[str(u.id)] = {
@@ -1495,6 +1546,10 @@ async function buildAttendanceBreakdown(
       homeStore: str(u.store).trim(),
       hourlyRate: _toNum(u.hourlyRate),
       dailyRate: _toNum(u.dailyRate),
+      transport: _toNum(u.transportationExpenses),
+      parking: _toNum(u.parkingFee),
+      insurance: _toNum(u.socialInsurance),
+      allowance: _toNum(u.otherAllowance),
     };
   });
 
@@ -1523,6 +1578,12 @@ async function buildAttendanceBreakdown(
         days: 0,
         minutes: 0,
         cost: 0,
+        baseCost: 0,
+        transport: 0,
+        parking: 0,
+        insurance: 0,
+        allowance: 0,
+        fixedCost: 0,
         rateType: u.dailyRate > 0 ? "daily" : "hourly",
         rate: u.dailyRate > 0 ? u.dailyRate : u.hourlyRate,
         hours: 0,
@@ -1536,6 +1597,7 @@ async function buildAttendanceBreakdown(
     const events = byUser[uid].sort((a, b) => a.ts.getTime() - b.ts.getTime());
     const isDaily = u.dailyRate > 0;
     const dayStore: Record<string, string> = {};
+    const monthDays = new Set<string>(); // 対象月内の出勤日 (固定項目の按分用)
 
     let clockIn: Date | null = null;
     let clockInStore = "";
@@ -1549,6 +1611,7 @@ async function buildAttendanceBreakdown(
         breakTotal = 0;
         const dstr = fmtDateVN(ev.ts);
         if (inScope(dstr) && dayStore[dstr] === undefined) dayStore[dstr] = clockInStore;
+        if (dstr.substring(0, 7) === targetYM) monthDays.add(dstr);
       } else if (ev.type === "break_start" && clockIn) {
         breakStart = ev.ts;
       } else if (ev.type === "break_end" && breakStart) {
@@ -1561,23 +1624,48 @@ async function buildAttendanceBreakdown(
           if (minutes < 0) minutes = 0;
           const b = bucket(uid, clockInStore);
           b.minutes += minutes;
-          if (!isDaily) b.cost += (minutes / 60) * u.hourlyRate;
+          if (!isDaily) b.baseCost += (minutes / 60) * u.hourlyRate;
         }
         clockIn = null; clockInStore = ""; breakStart = null; breakTotal = 0;
       }
     }
 
+    const storeDays: Record<string, number> = {};
     Object.keys(dayStore).forEach((d) => {
       const b = bucket(uid, dayStore[d]);
       b.days += 1;
-      if (isDaily) b.cost += u.dailyRate;
+      if (isDaily) b.baseCost += u.dailyRate;
+      storeDays[dayStore[d]] = (storeDays[dayStore[d]] || 0) + 1;
     });
+
+    // 月額固定項目の按分 (ルールは BreakdownRow のコメント参照)
+    const fixedMonthly = u.transport + u.parking + u.insurance + u.allowance;
+    const scopeDays = Object.keys(dayStore).length;
+    if (fixedMonthly > 0 && monthDays.size > 0 && scopeDays > 0) {
+      // 範囲が月をまたぐ場合に月額を超えないよう 1 で頭打ち
+      const ratio = Math.min(1, scopeDays / monthDays.size);
+      let attrStore = u.homeStore;
+      if (!attrStore) {
+        attrStore = Object.keys(storeDays).sort((a, b) => storeDays[b] - storeDays[a])[0] || "";
+      }
+      const b = bucket(uid, attrStore);
+      b.transport += u.transport * ratio;
+      b.parking += u.parking * ratio;
+      b.insurance += u.insurance * ratio;
+      b.allowance += u.allowance * ratio;
+    }
   });
 
   const rows = Object.keys(acc).map((k) => {
     const r = acc[k];
     r.hours = r.minutes / 60;
-    r.cost = Math.round(r.cost);
+    r.baseCost = Math.round(r.baseCost);
+    r.transport = Math.round(r.transport);
+    r.parking = Math.round(r.parking);
+    r.insurance = Math.round(r.insurance);
+    r.allowance = Math.round(r.allowance);
+    r.fixedCost = r.transport + r.parking + r.insurance + r.allowance;
+    r.cost = r.baseCost + r.fixedCost;
     return r;
   });
   rows.sort((a, b) => {
@@ -1592,12 +1680,22 @@ async function calcAttendanceLaborCost(
 ) {
   const rows = await buildAttendanceBreakdown(year, month, dateFrom, dateTo);
   let cost = 0, minutes = 0;
+  let base = 0, transport = 0, parking = 0, insurance = 0, allowance = 0;
   rows.forEach((r) => {
     if (r.store !== store) return;
     cost += r.cost;
     minutes += r.minutes;
+    base += r.baseCost;
+    transport += r.transport;
+    parking += r.parking;
+    insurance += r.insurance;
+    allowance += r.allowance;
   });
-  return { cost: Math.round(cost), hours: minutes / 60 };
+  return {
+    cost: Math.round(cost), hours: minutes / 60,
+    base, transport, parking, insurance, allowance,
+    fixed: transport + parking + insurance + allowance,
+  };
 }
 
 async function getAttendanceSummary(body: Row) {
@@ -1613,16 +1711,31 @@ async function getAttendanceSummary(body: Row) {
   rows = rows.filter((r) => r.days > 0 || r.minutes > 0 || r.cost > 0);
 
   let totalCost = 0, totalMinutes = 0, totalDays = 0;
-  const byStore: Record<string, { store: string; cost: number; hours: number; days: number; people: number }> = {};
+  const tot = { baseCost: 0, transport: 0, parking: 0, insurance: 0, allowance: 0, fixedCost: 0 };
+  type StoreAgg = {
+    store: string; cost: number; hours: number; days: number; people: number;
+    baseCost: number; transport: number; parking: number; insurance: number; allowance: number; fixedCost: number;
+  };
+  const byStore: Record<string, StoreAgg> = {};
   rows.forEach((r) => {
     totalCost += r.cost;
     totalMinutes += r.minutes;
     totalDays += r.days;
-    if (!byStore[r.store]) byStore[r.store] = { store: r.store, cost: 0, hours: 0, days: 0, people: 0 };
-    byStore[r.store].cost += r.cost;
-    byStore[r.store].hours += r.hours;
-    byStore[r.store].days += r.days;
-    byStore[r.store].people += 1;
+    if (!byStore[r.store]) {
+      byStore[r.store] = {
+        store: r.store, cost: 0, hours: 0, days: 0, people: 0,
+        baseCost: 0, transport: 0, parking: 0, insurance: 0, allowance: 0, fixedCost: 0,
+      };
+    }
+    const s = byStore[r.store];
+    s.cost += r.cost;
+    s.hours += r.hours;
+    s.days += r.days;
+    s.people += 1;
+    for (const k of ["baseCost", "transport", "parking", "insurance", "allowance", "fixedCost"] as const) {
+      s[k] += r[k];
+      tot[k] += r[k];
+    }
   });
 
   return {
@@ -1638,11 +1751,17 @@ async function getAttendanceSummary(body: Row) {
       days: r.days,
       hours: r.hours,
       cost: r.cost,
+      baseCost: r.baseCost,
+      transport: r.transport,
+      parking: r.parking,
+      insurance: r.insurance,
+      allowance: r.allowance,
+      fixedCost: r.fixedCost,
       rateType: r.rateType,
       rate: r.rate,
     })),
     byStore: Object.keys(byStore).sort().map((k) => byStore[k]),
-    totals: { cost: totalCost, hours: totalMinutes / 60, days: totalDays },
+    totals: { cost: totalCost, hours: totalMinutes / 60, days: totalDays, ...tot },
   };
 }
 
@@ -1912,6 +2031,13 @@ async function getDashboard(body: Row) {
         cost: attLabor.cost,
         hours: attLabor.hours,
         ratio: totalSales > 0 ? attLabor.cost / totalSales : 0,
+        // 内訳: 基本給 (時給×時間 / 日給×日数) + 従業員マスタの月額固定項目
+        base: attLabor.base,
+        transport: attLabor.transport,
+        parking: attLabor.parking,
+        insurance: attLabor.insurance,
+        allowance: attLabor.allowance,
+        fixed: attLabor.fixed,
       },
       other: {
         cost: otherLaborCostPart,

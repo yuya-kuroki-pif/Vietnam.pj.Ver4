@@ -3512,3 +3512,18 @@ input[type="time"]::-webkit-date-and-time-value {
   font-weight: 600;
   margin: 10px 0 12px;
 }
+
+/* 従業員登録: 給与・手当セクションの補足文と小ボタン */
+.form-hint {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin: -4px 0 12px;
+}
+.btn-inline {
+  display: inline-block;
+  width: auto;
+  margin-top: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+}

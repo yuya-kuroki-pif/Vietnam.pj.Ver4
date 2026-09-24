@@ -322,15 +322,27 @@
               </select>
             </div>
             <div>
+              <label data-i18n="salaryForm">Hình thức lương</label>
+              <select id="regSalaryForm">
+                <option value="" data-i18n="salaryFormEmpty">--</option>
+                <option value="hourly" data-i18n="salaryFormHourly">Theo giờ</option>
+                <option value="daily" data-i18n="salaryFormDaily">Theo ngày</option>
+                <option value="monthly" data-i18n="salaryFormMonthly">Theo tháng</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 給与・手当: 人件費集計 (勤怠集計・ダッシュボード) に自動計上される項目 -->
+          <h4 class="form-section" data-i18n="sectionSalary">Lương &amp; phụ cấp (tính vào chi phí nhân công)</h4>
+
+          <div class="form-row-2">
+            <div>
               <label data-i18n="hourlyRate">Lương theo giờ</label>
               <div class="currency-input">
                 <input type="number" id="regHourlyRate" min="0" step="1000" inputmode="numeric" />
                 <span class="currency-suffix">VND/h</span>
               </div>
             </div>
-          </div>
-
-          <div class="form-row-2">
             <div>
               <label data-i18n="dailyRate">Lương theo ngày</label>
               <div class="currency-input">
@@ -338,8 +350,58 @@
                 <span class="currency-suffix" data-i18n="currencyPerDay">VND/日</span>
               </div>
             </div>
-            <div></div>
           </div>
+          <div class="form-hint" data-i18n="rateHint">Chi phí nhân công cơ bản = lương ngày × số ngày công (ưu tiên) hoặc lương giờ × số giờ. Nhân viên lương tháng: nhập lương ngày ước tính (lương tháng ÷ số ngày công chuẩn).</div>
+
+          <div class="form-row-2">
+            <div>
+              <label data-i18n="monthlySalary">Lương tháng (tham khảo)</label>
+              <div class="currency-input">
+                <input type="number" id="regSalary" min="0" step="100000" inputmode="numeric" />
+                <span class="currency-suffix" data-i18n="currencyPerMonth">VND/tháng</span>
+              </div>
+            </div>
+            <div>
+              <label data-i18n="socialInsurance">Bảo hiểm công ty đóng (BHXH/BHYT/BHTN)</label>
+              <div class="currency-input">
+                <input type="number" id="regSocialInsurance" min="0" step="1000" inputmode="numeric" />
+                <span class="currency-suffix" data-i18n="currencyPerMonth">VND/tháng</span>
+              </div>
+              <button type="button" id="regInsuranceCalc" class="btn btn-ghost btn-inline" data-i18n="insuranceCalcBtn">= Lương tháng × 21.5%</button>
+            </div>
+          </div>
+
+          <div class="form-row-2">
+            <div>
+              <label data-i18n="transportAllowance">Phụ cấp đi lại (xăng xe)</label>
+              <div class="currency-input">
+                <input type="number" id="regTransport" min="0" step="10000" inputmode="numeric" />
+                <span class="currency-suffix" data-i18n="currencyPerMonth">VND/tháng</span>
+              </div>
+            </div>
+            <div>
+              <label data-i18n="parkingFee">Phí gửi xe</label>
+              <div class="currency-input">
+                <input type="number" id="regParking" min="0" step="10000" inputmode="numeric" />
+                <span class="currency-suffix" data-i18n="currencyPerMonth">VND/tháng</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row-2">
+            <div>
+              <label data-i18n="otherAllowance">Phụ cấp khác (ăn, nhà ở...)</label>
+              <div class="currency-input">
+                <input type="number" id="regOtherAllowance" min="0" step="10000" inputmode="numeric" />
+                <span class="currency-suffix" data-i18n="currencyPerMonth">VND/tháng</span>
+              </div>
+            </div>
+            <div>
+              <label data-i18n="allowanceNote">Ghi chú phụ cấp</label>
+              <input type="text" id="regAllowanceNote" maxlength="120" autocomplete="off" />
+            </div>
+          </div>
+          <div class="form-hint" data-i18n="fixedCostHint">Các khoản theo tháng (đi lại, gửi xe, bảo hiểm, phụ cấp khác) được chia theo số ngày công trong tháng và tính vào cửa hàng trực thuộc. Tháng không có ngày công thì không tính.</div>
 
           <h4 class="form-section" data-i18n="sectionBank">Tài khoản ngân hàng (Việt Nam)</h4>
 

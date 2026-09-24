@@ -56,6 +56,35 @@ const I18N = {
     sectionBasic: "Thông tin cơ bản",
     sectionContact: "Liên hệ",
     sectionEmployment: "Việc làm",
+    sectionSalary: "Lương & phụ cấp (tính vào chi phí nhân công)",
+    salaryForm: "Hình thức lương",
+    salaryFormEmpty: "--",
+    salaryFormHourly: "Theo giờ",
+    salaryFormDaily: "Theo ngày",
+    salaryFormMonthly: "Theo tháng",
+    monthlySalary: "Lương tháng (tham khảo)",
+    currencyPerMonth: "VND/tháng",
+    perMonthSuffix: "/tháng",
+    transportAllowance: "Phụ cấp đi lại (xăng xe)",
+    parkingFee: "Phí gửi xe",
+    socialInsurance: "Bảo hiểm công ty đóng (BHXH/BHYT/BHTN)",
+    insuranceCalcBtn: "= Lương tháng × 21.5%",
+    msgSalaryRequiredForCalc: "Hãy nhập lương tháng trước.",
+    otherAllowance: "Phụ cấp khác (ăn, nhà ở...)",
+    allowanceNote: "Ghi chú phụ cấp",
+    rateHint: "Chi phí nhân công cơ bản = lương ngày × số ngày công (ưu tiên) hoặc lương giờ × số giờ. Nhân viên lương tháng: nhập lương ngày ước tính (lương tháng ÷ số ngày công chuẩn).",
+    fixedCostHint: "Các khoản theo tháng (đi lại, gửi xe, bảo hiểm, phụ cấp khác) được chia theo số ngày công trong tháng và tính vào cửa hàng trực thuộc. Tháng không có ngày công thì không tính.",
+    masterFixedCost: "Khoản cố định/tháng",
+    dashTransportLabor: "Đi lại + gửi xe",
+    dashInsuranceLabor: "Bảo hiểm (công ty đóng)",
+    dashAllowanceLabor: "Phụ cấp khác",
+    colBaseCost: "Lương cơ bản",
+    colTransport: "Đi lại",
+    colParking: "Gửi xe",
+    colInsurance: "Bảo hiểm",
+    colAllowance: "Phụ cấp",
+    colFixedCost: "Khoản cố định",
+    colLaborTotal: "Tổng chi phí nhân công",
     sectionBank: "Tài khoản ngân hàng (Việt Nam)",
     positionLabel: "Chức vụ",
     positionAdmin: "Quản trị viên",
@@ -163,7 +192,7 @@ const I18N = {
     masterDeleteConfirm: "Xóa mục này?",
     menuDashboard: "Bảng điều khiển",
     dashTitle: "Bảng điều khiển cửa hàng",
-    dashInfoBanner: "Doanh thu bao gồm doanh thu ngoài POS, chi phí nhân công bao gồm chi phí nhân công khác. Giá vốn bao gồm khoản mục \"Mua hàng (đồ ăn)\" và \"Mua hàng (đồ uống)\" của quỹ tiền mặt.",
+    dashInfoBanner: "Doanh thu bao gồm doanh thu ngoài POS. Chi phí nhân công = lương cơ bản từ chấm công + các khoản theo tháng trong hồ sơ nhân viên (đi lại, gửi xe, bảo hiểm, phụ cấp) + chi phí nhân công khác nhập tay. Giá vốn bao gồm khoản mục \"Chi phí thực phẩm\" và \"Chi phí đồ uống\" của quỹ tiền mặt.",
     dashSelectStore: "-- Chọn cửa hàng --",
     dashSelectFirst: "Vui lòng chọn cửa hàng và tháng.",
     enterDailySales: "+ Doanh số hằng ngày",
@@ -227,16 +256,16 @@ const I18N = {
     dashLaborCost: "Chi phí nhân công",
     dashProfit: "Lợi nhuận",
     dashProfitRatio: "Tỷ lệ lợi nhuận",
-    dashAttLabor: "Chấm công",
-    dashOtherLabor: "Khác",
+    dashAttLabor: "Lương cơ bản (chấm công)",
+    dashOtherLabor: "Khác (nhập tay)",
     dashSalesPerHour: "Doanh thu / giờ",
     dashTotalHours: "Tổng giờ",
     userStore: "Cửa hàng",
     hourlyRate: "Lương theo giờ",
     dailyRate: "Lương theo ngày",
     laborCostModalTitle: "Chỉnh sửa chi phí nhân công khác",
-    otherLaborCostLabel: "Chi phí nhân công khác (cố định, thưởng, BHXH...)",
-    otherLaborHint: "※ Phần lương theo giờ từ chấm công được tự động tính riêng.",
+    otherLaborCostLabel: "Chi phí nhân công khác (thưởng, nhân viên thời vụ... không có trong hồ sơ nhân viên)",
+    otherLaborHint: "※ Lương cơ bản, đi lại, gửi xe, bảo hiểm và phụ cấp đã được tính tự động từ hồ sơ nhân viên và chấm công.",
     editLabel: "✎ Sửa",
     msgSaved: "Đã lưu.",
     selectStore: "-- Chọn cửa hàng --",
@@ -482,6 +511,35 @@ const I18N = {
     sectionBasic: "基本情報",
     sectionContact: "連絡先",
     sectionEmployment: "雇用情報",
+    sectionSalary: "給与・手当（人件費に計上）",
+    salaryForm: "給与形態",
+    salaryFormEmpty: "--",
+    salaryFormHourly: "時給制",
+    salaryFormDaily: "日給制",
+    salaryFormMonthly: "月給制",
+    monthlySalary: "月給（参考）",
+    currencyPerMonth: "VND/月",
+    perMonthSuffix: "/月",
+    transportAllowance: "交通費（通勤手当）",
+    parkingFee: "駐車場代",
+    socialInsurance: "社会保険 会社負担分（BHXH/BHYT/BHTN）",
+    insuranceCalcBtn: "= 月給 × 21.5%",
+    msgSalaryRequiredForCalc: "先に月給を入力してください。",
+    otherAllowance: "その他手当（食事・住宅など）",
+    allowanceNote: "手当メモ",
+    rateHint: "基本給の計算は 日給×出勤日数（優先）または 時給×労働時間 です。月給者は概算日給（月給÷所定労働日数）を日給に入力してください。",
+    fixedCostHint: "月額項目（交通費・駐車場代・社会保険・その他手当）は当月の出勤日数で日割りし、所属店舗の人件費に自動計上されます。出勤の無い月には計上されません。",
+    masterFixedCost: "月額固定（交通・駐車・社保・手当）",
+    dashTransportLabor: "交通費・駐車場代",
+    dashInsuranceLabor: "社会保険（会社負担）",
+    dashAllowanceLabor: "その他手当",
+    colBaseCost: "基本給",
+    colTransport: "交通費",
+    colParking: "駐車場代",
+    colInsurance: "社会保険",
+    colAllowance: "その他手当",
+    colFixedCost: "固定分",
+    colLaborTotal: "人件費合計",
     sectionBank: "振込先 (ベトナム)",
     positionLabel: "役職",
     positionAdmin: "管理者",
@@ -589,7 +647,7 @@ const I18N = {
     masterDeleteConfirm: "この項目を削除しますか?",
     menuDashboard: "店舗ダッシュボード",
     dashTitle: "店舗管理ダッシュボード",
-    dashInfoBanner: "売上には「POS外売上」、人件費には「その他人件費」が含まれます。原価には小口現金の「仕入れ (フード)」「仕入れ (ドリンク)」が含まれます。",
+    dashInfoBanner: "売上には「POS外売上」が含まれます。人件費 = 勤怠連動の基本給 + 従業員マスタの月額項目（交通費・駐車場代・社会保険・手当）+ 手入力の「その他人件費」です。原価には小口現金の「食材費」「飲料費」が含まれます。",
     dashSelectStore: "-- 店舗を選択 --",
     dashSelectFirst: "店舗と月を選択してください。",
     enterDailySales: "+ デイリー売上を入力",
@@ -653,16 +711,16 @@ const I18N = {
     dashLaborCost: "人件費",
     dashProfit: "利益",
     dashProfitRatio: "利益率",
-    dashAttLabor: "勤怠連動",
-    dashOtherLabor: "その他人件費",
+    dashAttLabor: "基本給（勤怠連動）",
+    dashOtherLabor: "その他人件費（手入力）",
     dashSalesPerHour: "人時売上高",
     dashTotalHours: "合計勤務時間",
     userStore: "所属店舗",
     hourlyRate: "時給",
     dailyRate: "日給",
     laborCostModalTitle: "その他人件費の編集",
-    otherLaborCostLabel: "その他人件費 (固定給・賞与・社保負担分など)",
-    otherLaborHint: "※ 勤怠から自動計算される時給分は別途加算されます。",
+    otherLaborCostLabel: "その他人件費（賞与・臨時スタッフなど、従業員マスタに登録できない分）",
+    otherLaborHint: "※ 基本給・交通費・駐車場代・社会保険・手当は従業員マスタと勤怠から自動計算されます。",
     editLabel: "✎ 編集",
     msgSaved: "保存しました。",
     selectStore: "-- 店舗を選択 --",
@@ -1817,6 +1875,18 @@ document.getElementById("cancelRegisterBtn").addEventListener("click", () => {
   loadUserMaster();
 });
 
+// 社会保険 会社負担の目安。ベトナムの使用者負担率 (2026-09 時点):
+//   BHXH 社会保険 17.5% + BHYT 医療保険 3% + BHTN 失業保険 1% = 21.5% (労組費 2% は含まず)
+const VN_EMPLOYER_INSURANCE_RATE = 0.215;
+document.getElementById("regInsuranceCalc").addEventListener("click", () => {
+  const salary = Number(document.getElementById("regSalary").value) || 0;
+  if (!salary) {
+    showToast(t("msgSalaryRequiredForCalc"), "error");
+    return;
+  }
+  document.getElementById("regSocialInsurance").value = Math.round(salary * VN_EMPLOYER_INSURANCE_RATE);
+});
+
 document.getElementById("registerForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const $ = (id) => document.getElementById(id).value.trim();
@@ -1837,6 +1907,14 @@ document.getElementById("registerForm").addEventListener("submit", async (e) => 
     store: $("regStore"),
     hourlyRate: document.getElementById("regHourlyRate").value || 0,
     dailyRate: document.getElementById("regDailyRate").value || 0,
+    // 給与・手当 (月額)。人件費集計に自動計上される。
+    salaryForm: $("regSalaryForm"),
+    salary: document.getElementById("regSalary").value || 0,
+    transportationExpenses: document.getElementById("regTransport").value || 0,
+    parkingFee: document.getElementById("regParking").value || 0,
+    socialInsurance: document.getElementById("regSocialInsurance").value || 0,
+    otherAllowance: document.getElementById("regOtherAllowance").value || 0,
+    allowanceNote: $("regAllowanceNote"),
   };
   if (!payload.name) {
     showToast(t("msgNameRequired"), "error");
@@ -4022,6 +4100,14 @@ function renderAttendanceSummary() {
       t("attSumPeople").replace("{n}", s.people);
     card.appendChild(meta);
 
+    // 内訳: 基本給 (勤怠) と月額固定分 (交通費・駐車場代・社保・手当)
+    if (s.fixedCost > 0) {
+      const split = document.createElement("div");
+      split.className = "att-sum-card-meta";
+      split.textContent = `${t("colBaseCost")} ${fmtVnd(s.baseCost)} + ${t("colFixedCost")} ${fmtVnd(s.fixedCost)}`;
+      card.appendChild(split);
+    }
+
     cards.appendChild(card);
   });
 
@@ -4039,7 +4125,7 @@ function renderAttendanceSummary() {
   // 単価未設定 (時給も日給も0) の従業員は人件費が0円で計上されてしまうため、
   // 気付けるよう警告バナーを出す。
   const noRateNames = [...new Set(
-    attSumState.rows.filter((r) => !r.rate).map((r) => r.name)
+    attSumState.rows.filter((r) => !r.rate && (r.days > 0 || r.hours > 0)).map((r) => r.name)
   )];
   if (noRateNames.length) {
     const warn = document.createElement("div");
@@ -4090,6 +4176,19 @@ function renderAttendanceSummary() {
     sub.textContent = subParts.filter(Boolean).join(" · ");
     nameCell.appendChild(sub);
 
+    // 月額固定分がある行は内訳を 2 行目に出す (人件費列は合計)
+    if (r.fixedCost > 0) {
+      const parts = [`${t("colBaseCost")} ${fmtCost(r.baseCost)}`];
+      if (r.transport) parts.push(`${t("colTransport")} ${fmtCost(r.transport)}`);
+      if (r.parking) parts.push(`${t("colParking")} ${fmtCost(r.parking)}`);
+      if (r.insurance) parts.push(`${t("colInsurance")} ${fmtCost(r.insurance)}`);
+      if (r.allowance) parts.push(`${t("colAllowance")} ${fmtCost(r.allowance)}`);
+      const sub2 = document.createElement("div");
+      sub2.className = "att-sum-emp-sub";
+      sub2.textContent = parts.join(" + ");
+      nameCell.appendChild(sub2);
+    }
+
     return [
       txCell(nameCell),
       txCell(r.days, { className: "tx-num" }),
@@ -4121,7 +4220,9 @@ document.getElementById("attSumExportBtn").addEventListener("click", () => {
   }
   const header = [
     t("colStore"), t("colEmployee"), t("positionLabel"), t("colHomeStore"),
-    t("colWorkDays"), t("colWorkHours"), t("colRate"), t("colRateType"), t("colLaborCost"),
+    t("colWorkDays"), t("colWorkHours"), t("colRate"), t("colRateType"),
+    t("colBaseCost"), t("colTransport"), t("colParking"), t("colInsurance"), t("colAllowance"),
+    t("colLaborTotal"),
   ];
   const lines = [header.map(csvEscape).join(",")];
   attSumState.rows.forEach((r) => {
@@ -4135,12 +4236,21 @@ document.getElementById("attSumExportBtn").addEventListener("click", () => {
       Math.round(r.hours * 100) / 100,
       r.rate,
       r.rateType === "daily" ? t("rateTypeDaily") : t("rateTypeHourly"),
+      r.baseCost !== undefined ? r.baseCost : r.cost,
+      r.transport || 0,
+      r.parking || 0,
+      r.insurance || 0,
+      r.allowance || 0,
       r.cost,
     ].map(csvEscape).join(","));
   });
   const tot = attSumState.totals;
-  lines.push(["", "", "", "", tot.days, Math.round(tot.hours * 100) / 100, "", "", tot.cost]
-    .map(csvEscape).join(","));
+  lines.push([
+    "", "", "", "", tot.days, Math.round(tot.hours * 100) / 100, "", "",
+    tot.baseCost !== undefined ? tot.baseCost : tot.cost,
+    tot.transport || 0, tot.parking || 0, tot.insurance || 0, tot.allowance || 0,
+    tot.cost,
+  ].map(csvEscape).join(","));
 
   const ym = `${attSumState.year}-${String(attSumState.month).padStart(2, "0")}`;
   downloadCsv(
@@ -4450,6 +4560,13 @@ async function openUserEdit(id) {
   set("regStore", u.store);
   set("regHourlyRate", u.hourlyRate || "");
   set("regDailyRate", u.dailyRate || "");
+  set("regSalaryForm", u.salaryForm || "");
+  set("regSalary", u.salary || "");
+  set("regTransport", u.transportationExpenses || "");
+  set("regParking", u.parkingFee || "");
+  set("regSocialInsurance", u.socialInsurance || "");
+  set("regOtherAllowance", u.otherAllowance || "");
+  set("regAllowanceNote", u.allowanceNote || "");
 }
 
 async function loadUserMaster() {
@@ -4486,6 +4603,10 @@ function renderUserMasterList(list) {
     }
     if (u.dailyRate) appendMasterMeta(meta, t("dailyRate"), fmtVnd(u.dailyRate) + t("perDaySuffix"));
     if (u.hourlyRate) appendMasterMeta(meta, t("hourlyRate"), fmtVnd(u.hourlyRate) + "/h");
+    if (u.salary) appendMasterMeta(meta, t("monthlySalary"), fmtVnd(u.salary) + t("perMonthSuffix"));
+    const fixedMonthly = (Number(u.transportationExpenses) || 0) + (Number(u.parkingFee) || 0) +
+      (Number(u.socialInsurance) || 0) + (Number(u.otherAllowance) || 0);
+    if (fixedMonthly) appendMasterMeta(meta, t("masterFixedCost"), fmtVnd(fixedMonthly) + t("perMonthSuffix"));
     if (u.hireDate) appendMasterMeta(meta, t("hireDate"), fmtDate(u.hireDate));
     card.appendChild(meta);
 
@@ -4871,6 +4992,13 @@ function renderDashboard(d) {
   const laborClass = laborTargetPct > 0 && laborRatioPct > laborTargetPct ? "negative" : "positive";
   const att = d.labor.attendance || { cost: 0, hours: 0, ratio: 0 };
   const other = d.labor.other || { cost: 0, ratio: 0 };
+  // 内訳行: 基本給 (勤怠) / 交通費・駐車場代 / 社会保険 / その他手当 (従業員マスタの月額項目)
+  const salesForRatio = d.sales.total || 0;
+  const laborPct = (v) => pctValueFmt(salesForRatio > 0 ? (v / salesForRatio) * 100 : 0);
+  const attBase = att.base !== undefined ? att.base : att.cost;
+  const laborRow = (label, v) =>
+    `<div class="dash-row"><span class="dash-row-label">${label}</span>` +
+    `<span class="dash-row-value">${fmtVndCompact(v || 0)} (${laborPct(v || 0)})</span></div>`;
   laborCard.innerHTML = `
     <div class="dash-card-header">
       <div>
@@ -4885,10 +5013,10 @@ function renderDashboard(d) {
       <span class="dash-row-label">${t("dashLaborCost")}</span>
       <span class="dash-row-value">${fmtVndCompact(d.labor.cost)}</span>
     </div>
-    <div class="dash-row">
-      <span class="dash-row-label">${t("dashAttLabor")}</span>
-      <span class="dash-row-value">${fmtVndCompact(att.cost)} (${pctValueFmt(att.ratio * 100)})</span>
-    </div>
+    ${laborRow(t("dashAttLabor"), attBase)}
+    ${laborRow(t("dashTransportLabor"), (att.transport || 0) + (att.parking || 0))}
+    ${laborRow(t("dashInsuranceLabor"), att.insurance || 0)}
+    ${att.allowance > 0 ? laborRow(t("dashAllowanceLabor"), att.allowance) : ""}
     <div class="dash-row">
       <span class="dash-row-label">${t("dashOtherLabor")}</span>
       <span>
