@@ -4561,7 +4561,9 @@ async function openUserEdit(id) {
   set("regHourlyRate", u.hourlyRate || "");
   set("regDailyRate", u.dailyRate || "");
   set("regSalaryForm", u.salaryForm || "");
-  set("regSalary", u.salary || "");
+  // 旧CSV取込で時給が salary 列に入っている従業員がいるため、月給制のときだけ月給を流し込む
+  // (それ以外は空欄 → 保存時に 0 でクリーンアップされる)
+  set("regSalary", u.salaryForm === "monthly" ? (u.salary || "") : "");
   set("regTransport", u.transportationExpenses || "");
   set("regParking", u.parkingFee || "");
   set("regSocialInsurance", u.socialInsurance || "");
@@ -4603,7 +4605,8 @@ function renderUserMasterList(list) {
     }
     if (u.dailyRate) appendMasterMeta(meta, t("dailyRate"), fmtVnd(u.dailyRate) + t("perDaySuffix"));
     if (u.hourlyRate) appendMasterMeta(meta, t("hourlyRate"), fmtVnd(u.hourlyRate) + "/h");
-    if (u.salary) appendMasterMeta(meta, t("monthlySalary"), fmtVnd(u.salary) + t("perMonthSuffix"));
+    // 旧CSV取込で時給が salary 列に入っている従業員がいるため、月給制のときだけ月給を出す
+    if (u.salary && u.salaryForm === "monthly") appendMasterMeta(meta, t("monthlySalary"), fmtVnd(u.salary) + t("perMonthSuffix"));
     const fixedMonthly = (Number(u.transportationExpenses) || 0) + (Number(u.parkingFee) || 0) +
       (Number(u.socialInsurance) || 0) + (Number(u.otherAllowance) || 0);
     if (fixedMonthly) appendMasterMeta(meta, t("masterFixedCost"), fmtVnd(fixedMonthly) + t("perMonthSuffix"));
