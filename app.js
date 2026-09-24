@@ -192,7 +192,7 @@ const I18N = {
     masterDeleteConfirm: "Xóa mục này?",
     menuDashboard: "Bảng điều khiển",
     dashTitle: "Bảng điều khiển cửa hàng",
-    dashInfoBanner: "Doanh thu bao gồm doanh thu ngoài POS. Chi phí nhân công = lương cơ bản từ chấm công + các khoản theo tháng trong hồ sơ nhân viên (đi lại, gửi xe, bảo hiểm, phụ cấp) + chi phí nhân công khác nhập tay. Giá vốn bao gồm khoản mục \"Chi phí thực phẩm\" và \"Chi phí đồ uống\" của quỹ tiền mặt.",
+    dashInfoBanner: "Doanh thu bao gồm doanh thu ngoài POS. Chi phí nhân công = lương cơ bản từ chấm công + các khoản theo tháng trong hồ sơ nhân viên (đi lại, gửi xe, bảo hiểm, phụ cấp) + chi phí nhân công khác nhập tay. Giá vốn tính chưa thuế, gồm cả khoản mục \"Chi phí thực phẩm\" và \"Chi phí đồ uống\" của quỹ tiền mặt; tỷ lệ giá vốn chỉ gồm đồ ăn + đồ uống.",
     dashSelectStore: "-- Chọn cửa hàng --",
     dashSelectFirst: "Vui lòng chọn cửa hàng và tháng.",
     enterDailySales: "+ Doanh số hằng ngày",
@@ -249,6 +249,9 @@ const I18N = {
     dashTodayPace: "Tỷ lệ đạt mục tiêu kỳ đã chọn",
     dashMonthlyProgress: "Tỷ lệ tiến độ tháng",
     dashCostRatio: "Tỷ lệ chi phí",
+    dashCostExclNote: "Giá vốn & doanh thu chưa thuế",
+    dashCostBasisStock: "Đã tính tồn kho (tồn đầu + nhập − tồn cuối)",
+    dashOtherPurchases: "Mua khác (vật tư..., không tính vào tỷ lệ)",
     dashTarget: "MT",
     dashFood: "Đồ ăn",
     dashDrink: "Đồ uống",
@@ -647,7 +650,7 @@ const I18N = {
     masterDeleteConfirm: "この項目を削除しますか?",
     menuDashboard: "店舗ダッシュボード",
     dashTitle: "店舗管理ダッシュボード",
-    dashInfoBanner: "売上には「POS外売上」が含まれます。人件費 = 勤怠連動の基本給 + 従業員マスタの月額項目（交通費・駐車場代・社会保険・手当）+ 手入力の「その他人件費」です。原価には小口現金の「食材費」「飲料費」が含まれます。",
+    dashInfoBanner: "売上には「POS外売上」が含まれます。人件費 = 勤怠連動の基本給 + 従業員マスタの月額項目（交通費・駐車場代・社会保険・手当）+ 手入力の「その他人件費」です。原価は税抜で集計し、小口現金の「食材費」「飲料費」を含みます。原価率はフード+ドリンクのみ（消耗品等は含みません）。",
     dashSelectStore: "-- 店舗を選択 --",
     dashSelectFirst: "店舗と月を選択してください。",
     enterDailySales: "+ デイリー売上を入力",
@@ -704,6 +707,9 @@ const I18N = {
     dashTodayPace: "設定期間目標達成率",
     dashMonthlyProgress: "月次進捗率",
     dashCostRatio: "原価率",
+    dashCostExclNote: "原価・売上とも税抜",
+    dashCostBasisStock: "棚卸反映済（前月棚卸 + 仕入 − 当月棚卸）",
+    dashOtherPurchases: "その他仕入（消耗品等・原価率に含まず）",
     dashTarget: "目標",
     dashFood: "フード",
     dashDrink: "ドリンク",
@@ -4958,12 +4964,19 @@ function renderDashboard(d) {
   const drinkRatioPct = d.cost.drinkRatio * 100;
   const foodCostTargetPct = d.target.foodCostRatio;
   const drinkCostTargetPct = d.target.drinkCostRatio;
-  const totalCostTargetPct = (foodCostTargetPct + drinkCostTargetPct) / 2 || 0;
+  // 合計の目標は売上構成比で加重する (単純平均だとフード偏重の店で基準がずれる)
+  const fdSales = (d.sales.food || 0) + (d.sales.drink || 0);
+  const totalCostTargetPct = fdSales > 0
+    ? (foodCostTargetPct * (d.sales.food || 0) + drinkCostTargetPct * (d.sales.drink || 0)) / fdSales
+    : ((foodCostTargetPct + drinkCostTargetPct) / 2 || 0);
   const costClass = totalRatioPct > totalCostTargetPct && totalCostTargetPct > 0 ? "negative" : "positive";
+  const basis = d.cost.basis || {};
+  const usesStock = basis.food === "stocktake" || basis.drink === "stocktake";
   costCard.innerHTML = `
     <div class="dash-card-header">
       <div>
         <div class="dash-card-label">${t("dashCostRatio")}</div>
+        <div class="dash-card-sub">${t("dashCostExclNote")}${usesStock ? " · " + t("dashCostBasisStock") : ""}</div>
       </div>
       <div class="dash-card-value-wrap">
         <div class="dash-card-value ${costClass}">${pctValueFmt(totalRatioPct)}</div>
@@ -4973,6 +4986,7 @@ function renderDashboard(d) {
     <div class="dash-row">
       <span class="dash-row-label">${t("dashFood")}</span>
       <span>
+        <span class="dash-row-target-label">${fmtVndCompact(d.cost.food || 0)}</span>
         <span class="dash-row-value ${foodCostTargetPct > 0 && foodRatioPct > foodCostTargetPct ? "over" : (foodCostTargetPct > 0 ? "under" : "")}">${pctValueFmt(foodRatioPct)}</span>
         ${foodCostTargetPct > 0 ? `<span class="dash-row-target-label">/ ${t("dashTarget")} ${pctValueFmt(foodCostTargetPct)}</span>` : ""}
       </span>
@@ -4980,9 +4994,14 @@ function renderDashboard(d) {
     <div class="dash-row">
       <span class="dash-row-label">${t("dashDrink")}</span>
       <span>
+        <span class="dash-row-target-label">${fmtVndCompact(d.cost.drink || 0)}</span>
         <span class="dash-row-value ${drinkCostTargetPct > 0 && drinkRatioPct > drinkCostTargetPct ? "over" : (drinkCostTargetPct > 0 ? "under" : "")}">${pctValueFmt(drinkRatioPct)}</span>
         ${drinkCostTargetPct > 0 ? `<span class="dash-row-target-label">/ ${t("dashTarget")} ${pctValueFmt(drinkCostTargetPct)}</span>` : ""}
       </span>
+    </div>
+    <div class="dash-row">
+      <span class="dash-row-label">${t("dashOtherPurchases")}</span>
+      <span class="dash-row-value">${fmtVndCompact(d.cost.other || 0)}</span>
     </div>
   `;
   root.appendChild(costCard);

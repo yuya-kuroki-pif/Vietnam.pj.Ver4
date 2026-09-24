@@ -1872,18 +1872,21 @@ async function getDashboard(body: Row) {
   const paymentTotal = paymentCash + paymentQr + paymentCard;
 
   // Purchases (cost)
+  // 2026-09-24: 原価は税抜で集計する (原価率の分母 foodSales/drinkSales が税抜のため)。
+  //   purchases.unitPrice は税抜入力なので taxRate を掛けない。
+  //   petty_cash.amount は税込入力なので taxRate で割り戻す。
   const monthlyPurchases = await fetchAll("purchases", (q) =>
     q.eq("store", store).gte("date", dateFrom).lte("date", dateTo));
   let foodPurchases = 0, drinkPurchases = 0, otherCost = 0;
   monthlyPurchases.forEach((r) => {
-    const amt = _toNum(r.unitPrice) * _toNum(r.quantity) * (1 + _toNum(r.taxRate) / 100);
+    const amt = _toNum(r.unitPrice) * _toNum(r.quantity);
     const cat = str(r.category);
     if (cat === "food") foodPurchases += amt;
     else if (cat === "drink") drinkPurchases += amt;
-    else otherCost += amt;
+    else otherCost += amt; // 消耗品・サービス料・カテゴリ未設定など (原価率には含めない)
   });
 
-  // 小口現金で仕入れた分 (purchaseFood / purchaseDrink) も仕入れ高に含める
+  // 小口現金で仕入れた分 (foodCost / drinkCost) も仕入れ高に含める
   let pettyFoodPurchases = 0, pettyDrinkPurchases = 0;
   (await fetchAll("petty_cash", (q) =>
     q.eq("store", store).gte("date", dateFrom).lte("date", dateTo))).forEach((r) => {
@@ -1893,7 +1896,7 @@ async function getDashboard(body: Row) {
     const isFood = cat === "foodCost" || cat === "purchaseFood";
     const isDrink = cat === "drinkCost" || cat === "purchaseDrink";
     if (!isFood && !isDrink) return;
-    let amt = _toNum(r.amount);
+    let amt = _toNum(r.amount) / (1 + _toNum(r.taxRate) / 100);
     if ((str(r.type) || "out") === "in") amt = -amt;
     if (isFood) pettyFoodPurchases += amt;
     else pettyDrinkPurchases += amt;
@@ -1902,6 +1905,10 @@ async function getDashboard(body: Row) {
   drinkPurchases += pettyDrinkPurchases;
 
   // 棚卸ベースの使用高: 当月使用高 = 前月棚卸高 + 当月仕入れ - 当月棚卸高
+  // ※ 前月・当月の両方の棚卸がある区分だけ適用する。片方だけだと
+  //    「前月在庫を全額消費」「当月在庫分だけ過小」になり月中の数字が崩れるため。
+  // ※ 棚卸金額は在庫マスタの前回単価 (税込) ベース。仕入は税抜なので厳密には数%ずれる
+  //    (要改善: 棚卸側も税抜単価で評価する)。
   const stRows = await fetchAll("stocktakes", (q) =>
     q.eq("store", store).in("yearMonth", [yearMonth, prevYM]));
   const prevStock = { food: 0, drink: 0 };
@@ -1922,13 +1929,19 @@ async function getDashboard(body: Row) {
     }
   });
 
-  const foodCost = (hasPrevStock.food || hasCurrStock.food)
+  const useStock = {
+    food: hasPrevStock.food && hasCurrStock.food,
+    drink: hasPrevStock.drink && hasCurrStock.drink,
+  };
+  const foodCost = useStock.food
     ? (prevStock.food + foodPurchases - currStock.food)
     : foodPurchases;
-  const drinkCost = (hasPrevStock.drink || hasCurrStock.drink)
+  const drinkCost = useStock.drink
     ? (prevStock.drink + drinkPurchases - currStock.drink)
     : drinkPurchases;
-  const totalCost = foodCost + drinkCost + otherCost;
+  // 原価率の対象はフード+ドリンクのみ。その他仕入 (otherCost) は利益計算にだけ使う。
+  const fdCost = foodCost + drinkCost;
+  const totalCost = fdCost + otherCost;
 
   // Monthly targets
   const { data: target, error: tErr } = await supabase
@@ -2007,13 +2020,19 @@ async function getDashboard(body: Row) {
       pettyCash: pettyCashAmount,
     },
     cost: {
-      total: totalCost,
+      total: fdCost,          // フード+ドリンク (税抜)。原価率の分子
       food: foodCost,
       drink: drinkCost,
-      other: otherCost,
+      other: otherCost,       // 消耗品等。原価率には含めず利益計算のみ
+      allExpenses: totalCost, // フード+ドリンク+その他仕入
+      taxBasis: "excl",
+      basis: {                // 'stocktake' = 前月棚卸+仕入−当月棚卸 / 'purchase' = 仕入のみ
+        food: useStock.food ? "stocktake" : "purchase",
+        drink: useStock.drink ? "stocktake" : "purchase",
+      },
       foodRatio: foodSales > 0 ? foodCost / foodSales : 0,
       drinkRatio: drinkSales > 0 ? drinkCost / drinkSales : 0,
-      totalRatio: totalSales > 0 ? totalCost / totalSales : 0,
+      totalRatio: totalSales > 0 ? fdCost / totalSales : 0,
     },
     target: {
       sales: salesTarget,
