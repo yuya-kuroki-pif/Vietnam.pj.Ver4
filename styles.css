@@ -1793,6 +1793,16 @@ form select:focus {
   font-variant-numeric: tabular-nums;
 }
 
+/* 一覧の上 (絞り込みの直下) に置く合計表示 */
+.petty-summary-top {
+  margin-top: 0;
+  margin-bottom: 12px;
+  border-top: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
 .petty-total.in { color: var(--success); }
 .petty-total.out { color: var(--danger); }
 
