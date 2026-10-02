@@ -3607,6 +3607,8 @@ function updatePettyTypeUI() {
   inFields.classList.toggle("hidden", !isIn);
   // 非表示側の required 入力が送信をブロックしないよう disabled を切り替える
   outFields.querySelectorAll("input, select").forEach((el) => { el.disabled = isIn; });
+  // 合計ボックス (モーダル上部固定) も入金モードでは不要なので隠す
+  document.getElementById("cSummaryBox").classList.toggle("hidden", isIn);
   document.getElementById("cInAmount").disabled = !isIn;
   const btn = document.getElementById("cSubmitBtn");
   if (isIn) {

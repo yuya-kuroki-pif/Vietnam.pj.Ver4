@@ -3527,3 +3527,14 @@ input[type="time"]::-webkit-date-and-time-value {
   padding: 4px 10px;
   font-size: 12px;
 }
+
+
+/* 登録モーダル上部の合計ボックス: スクロールしても上に貼り付く */
+.tx-summary-top {
+  position: sticky;
+  top: -22px; /* .modal-card の上パディング分 */
+  z-index: 6;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+}
