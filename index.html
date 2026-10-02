@@ -730,6 +730,13 @@
           </div>
 
           <div id="purchaseList" class="tx-list"></div>
+          <div class="petty-summary">
+            <span data-i18n="totalQtyLabel">数量合計</span>:
+            <span id="purchaseTotalQty" class="petty-total">0</span>
+            &nbsp;/&nbsp;
+            <span data-i18n="totalInclLabel">金額(税込)合計</span>:
+            <span id="purchaseTotalIncl" class="petty-total out">0 VND</span>
+          </div>
         </div>
 
         <!-- Petty cash tab -->
@@ -759,6 +766,9 @@
 
           <div id="pettyList" class="tx-list"></div>
           <div class="petty-summary">
+            <span data-i18n="totalQtyLabel">数量合計</span>:
+            <span id="pettyTotalQty" class="petty-total">0</span>
+            &nbsp;/&nbsp;
             <span data-i18n="pettyTotalIn">Tổng thu</span>:
             <span id="pettyTotalIn" class="petty-total in">0 VND</span>
             &nbsp;/&nbsp;
@@ -901,6 +911,7 @@
         <button type="button" id="pAddItem" class="btn btn-ghost btn-block btn-add-item" data-i18n="addItemBtn">+ アイテムを追加</button>
 
         <div class="tx-summary-box">
+          <div><span data-i18n="totalQtyLabel">数量合計</span>: <span id="pTotalQty">0</span></div>
           <div><span data-i18n="amountExclTax">Tiền chưa thuế</span>: <span id="pAmountExcl">0 VND</span></div>
           <div><span data-i18n="amountInclTax">Tiền có thuế</span>: <strong id="pAmountIncl">0 VND</strong></div>
         </div>
@@ -984,21 +995,34 @@
           <button type="button" class="type-toggle-btn" data-type="in" data-i18n="typeIn">Thu (入金)</button>
         </div>
 
-        <label data-i18n="vendor">Nhà cung cấp</label>
-        <select id="cVendor">
-          <option value="" data-i18n="selectVendor">-- Chọn nhà cung cấp --</option>
-        </select>
+        <!-- 出金時のみ表示 (入金は店舗・日付・金額だけのシンプル入力) -->
+        <div id="cOutFields">
+          <label data-i18n="vendor">Nhà cung cấp</label>
+          <select id="cVendor">
+            <option value="" data-i18n="selectVendor">-- Chọn nhà cung cấp --</option>
+          </select>
 
-        <label data-i18n="taxCode">Mã số thuế (MST)</label>
-        <input type="text" id="cTaxCode" maxlength="20" placeholder="0123456789" />
+          <label data-i18n="taxCode">Mã số thuế (MST)</label>
+          <input type="text" id="cTaxCode" maxlength="20" placeholder="0123456789" />
 
-        <!-- 一括登録用アイテムリスト(JSで動的に追加) -->
-        <div id="cItemsList" class="batch-items"></div>
+          <!-- 一括登録用アイテムリスト(JSで動的に追加) -->
+          <div id="cItemsList" class="batch-items"></div>
 
-        <button type="button" id="cAddItem" class="btn btn-ghost btn-block btn-add-item" data-i18n="addItemBtn">+ アイテムを追加</button>
+          <button type="button" id="cAddItem" class="btn btn-ghost btn-block btn-add-item" data-i18n="addItemBtn">+ アイテムを追加</button>
 
-        <div class="tx-summary-box">
-          <div><span data-i18n="amountInclTax">Tiền có thuế</span>: <strong id="cTotalAmount">0 VND</strong></div>
+          <div class="tx-summary-box">
+            <div><span data-i18n="totalQtyLabel">数量合計</span>: <span id="cTotalQty">0</span></div>
+            <div><span data-i18n="amountInclTax">Tiền có thuế</span>: <strong id="cTotalAmount">0 VND</strong></div>
+          </div>
+        </div>
+
+        <!-- 入金時のみ表示: 金額だけ (科目は「準備金入金」として記録) -->
+        <div id="cInFields" class="hidden">
+          <label><span data-i18n="pettyInAmount">金額</span><span class="required">*</span></label>
+          <div class="currency-input">
+            <input type="number" id="cInAmount" min="1" step="1" inputmode="numeric" required disabled />
+            <span class="currency-suffix">VND</span>
+          </div>
         </div>
 
         <button type="submit" class="btn btn-primary" id="cSubmitBtn" data-i18n="registerBtn">Đăng ký</button>

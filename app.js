@@ -376,6 +376,9 @@ const I18N = {
     pettyBanner: "💡 Giao dịch quỹ tiền mặt được phân loại theo khoản mục.",
     pettyTotalIn: "Tổng thu",
     pettyTotalOut: "Tổng chi",
+    totalQtyLabel: "Tổng số lượng",
+    totalInclLabel: "Tổng tiền (có thuế)",
+    pettyInAmount: "Số tiền",
     purchaseModalTitle: "Đăng ký mua hàng",
     pettyModalTitle: "Đăng ký giao dịch quỹ tiền mặt",
     purchaseDate: "Ngày mua",
@@ -836,6 +839,9 @@ const I18N = {
     pettyBanner: "💡 小口現金取引は科目・補助科目別に分類されます。",
     pettyTotalIn: "入金合計",
     pettyTotalOut: "出金合計",
+    totalQtyLabel: "数量合計",
+    totalInclLabel: "金額(税込)合計",
+    pettyInAmount: "金額",
     purchaseModalTitle: "仕入れ登録",
     pettyModalTitle: "小口現金取引登録",
     purchaseDate: "仕入日",
@@ -3295,6 +3301,7 @@ function reindexPurchaseItems() {
 function recalcPurchaseAmount() {
   let totalExcl = 0;
   let totalIncl = 0;
+  let totalQty = 0;
   document.querySelectorAll("#pItemsList .batch-item").forEach((item) => {
     const u = parseFloat(item.querySelector("[data-field='unitPrice']").value) || 0;
     const q = parseFloat(item.querySelector("[data-field='quantity']").value) || 0;
@@ -3302,7 +3309,9 @@ function recalcPurchaseAmount() {
     const excl = u * q;
     totalExcl += excl;
     totalIncl += excl * (1 + r / 100);
+    totalQty += q;
   });
+  document.getElementById("pTotalQty").textContent = fmtQty(totalQty);
   document.getElementById("pAmountExcl").textContent = fmtVnd(totalExcl);
   document.getElementById("pAmountIncl").textContent = fmtVnd(totalIncl);
 }
@@ -3473,6 +3482,17 @@ function renderPurchaseList() {
   root.innerHTML = "";
 
   const all = filteredPurchases();
+
+  // 合計は絞り込み後の一覧に対して出す (注文数量 / 税込金額)
+  let totalQty = 0, totalIncl = 0;
+  all.forEach((p) => {
+    const q = Number(p.quantity) || 0;
+    totalQty += q;
+    totalIncl += (Number(p.unitPrice) || 0) * q * (1 + (Number(p.taxRate) || 0) / 100);
+  });
+  document.getElementById("purchaseTotalQty").textContent = fmtQty(totalQty);
+  document.getElementById("purchaseTotalIncl").textContent = fmtVnd(totalIncl);
+
   if (!all.length) {
     root.appendChild(txEmptyBox());
     return;
@@ -3573,8 +3593,28 @@ document.querySelectorAll(".type-toggle-btn").forEach((btn) => {
     document.querySelectorAll(".type-toggle-btn").forEach((b) =>
       b.classList.toggle("active", b.dataset.type === pettyType)
     );
+    updatePettyTypeUI();
   });
 });
+
+// 区分に応じてフォームを切り替える。
+// 「入金」= 店舗・日付・金額のみ (科目は自動で「準備金入金」として記録)。
+function updatePettyTypeUI() {
+  const isIn = pettyType === "in";
+  const outFields = document.getElementById("cOutFields");
+  const inFields = document.getElementById("cInFields");
+  outFields.classList.toggle("hidden", isIn);
+  inFields.classList.toggle("hidden", !isIn);
+  // 非表示側の required 入力が送信をブロックしないよう disabled を切り替える
+  outFields.querySelectorAll("input, select").forEach((el) => { el.disabled = isIn; });
+  document.getElementById("cInAmount").disabled = !isIn;
+  const btn = document.getElementById("cSubmitBtn");
+  if (isIn) {
+    if (btn) btn.textContent = t("registerBtn");
+  } else {
+    reindexPettyItems();
+  }
+}
 
 function openPettyModal() {
   if (!txStores.length) {
@@ -3600,6 +3640,7 @@ function openPettyModal() {
   // Reset items & start with 1 item
   document.getElementById("cItemsList").innerHTML = "";
   addPettyItem();
+  updatePettyTypeUI();
   document.getElementById("pettyModal").classList.remove("hidden");
 }
 
@@ -3652,15 +3693,23 @@ function reindexPettyItems() {
 // 小口の金額は「単価(税込) × 数量」。行ごとの小計と全体合計を同時に更新する。
 function recalcPettyAmount() {
   let total = 0;
+  let totalQty = 0;
   document.querySelectorAll("#cItemsList .batch-item").forEach((row) => {
     const u = parseFloat(row.querySelector("[data-field='unitPrice']").value) || 0;
     const q = parseFloat(row.querySelector("[data-field='quantity']").value) || 0;
     const sub = u * q;
     total += sub;
+    totalQty += q;
     const cell = row.querySelector(".batch-item-amount-value");
     if (cell) cell.textContent = fmtVnd(sub);
   });
+  document.getElementById("cTotalQty").textContent = fmtQty(totalQty);
   document.getElementById("cTotalAmount").textContent = fmtVnd(total);
+}
+
+// 数量の表示 (小数は2桁まで)
+function fmtQty(q) {
+  return (Math.round((Number(q) || 0) * 100) / 100).toLocaleString("vi-VN");
 }
 
 function collectPettyItems() {
@@ -3685,11 +3734,39 @@ function collectPettyItems() {
 document.getElementById("pettyForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const $ = (id) => document.getElementById(id).value;
-  const items = collectPettyItems();
   if (!$("cDate") || !$("cStore").trim()) {
     showToast(t("msgRequiredFields"), "error");
     return;
   }
+
+  // 「入金」は店舗・日付・金額のみのシンプル登録。
+  // 科目は「準備金入金 (reserveDeposit)」として記録する。
+  if (pettyType === "in") {
+    const amount = parseFloat($("cInAmount")) || 0;
+    if (amount <= 0) {
+      showToast(t("msgRequiredFields"), "error");
+      return;
+    }
+    const r0 = await api("registerPettyCash", {
+      date: $("cDate"),
+      store: $("cStore").trim(),
+      type: "in",
+      category: "reserveDeposit",
+      amount: amount,
+      taxRate: 0,
+    });
+    if (r0.success) {
+      showToast(t("msgTxRegistered"), "success");
+      closePettyModal();
+      await loadStores();
+      loadPettyCash();
+    } else {
+      showToast(r0.message || t("msgError"), "error");
+    }
+    return;
+  }
+
+  const items = collectPettyItems();
   // category と amount が両方ある行のみ有効扱い
   const validItems = items.filter((it) => it.category && Number(it.amount) > 0);
   if (validItems.length === 0) {
@@ -3750,11 +3827,17 @@ function renderPettyList() {
   const all = filteredPetty();
 
   // 合計は絞り込み後の件数に対して出す (表と数字が食い違わないように)。
-  let totalIn = 0, totalOut = 0;
+  // 数量合計は出金 (購入) のみ対象 — 入金の数量1はダミーのため。
+  let totalIn = 0, totalOut = 0, totalQty = 0;
   all.forEach((it) => {
-    if (it.type === "in") totalIn += it.amount;
-    else totalOut += it.amount;
+    if (it.type === "in") {
+      totalIn += it.amount;
+    } else {
+      totalOut += it.amount;
+      totalQty += Number(it.quantity) || 0;
+    }
   });
+  document.getElementById("pettyTotalQty").textContent = fmtQty(totalQty);
   document.getElementById("pettyTotalIn").textContent = fmtVnd(totalIn);
   document.getElementById("pettyTotalOut").textContent = fmtVnd(totalOut);
 
