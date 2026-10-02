@@ -24,7 +24,7 @@
  *  4. エディタで関数 `syncAll` を選んで一度実行 (初回は権限承認)
  *     → シートに全テーブルが転記されることを確認
  *  5. 関数 `setupTrigger` を一度実行
- *     → 以後 6時間ごと に自動同期されます (間隔は下の定数で変更可)
+ *     → 以後 1時間ごと に自動同期されます (間隔は下の定数で変更可)
  *
  *  手動で同期したいとき: シートのメニュー「🔄 Supabase同期」
  *  自動同期を止めたいとき: 関数 `removeTrigger` を実行
@@ -39,7 +39,7 @@ var API_URL    = "https://yczwdkkuaitlbvtskmsf.supabase.co/functions/v1/api";
 var EXPORT_TOKEN = "PASTE_TOKEN_HERE";
 
 // 自動同期の間隔 (時間)。1, 2, 4, 6, 8, 12 のいずれか。
-var SYNC_INTERVAL_HOURS = 6;
+var SYNC_INTERVAL_HOURS = 1;
 
 // ---- 転記対象テーブル (タブ名・列順は旧スプレッドシートに準拠) ----
 var TABLES = [
