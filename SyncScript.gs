@@ -114,8 +114,10 @@ function syncAll() {
   var results = [];
   var startedAt = new Date();
 
+  var cache = {}; // AttendanceLog 生成用に users / attendance を使い回す
   TABLES.forEach(function (def) {
     var rows = fetchExport_(def.table);
+    cache[def.table] = rows;
     writeSheet_(def.sheet, def.cols, rows.map(function (r) {
       return def.cols.map(function (c) {
         var v = r[c];
@@ -128,6 +130,10 @@ function syncAll() {
   // ポジションマスタと日別売上予算は公開APIから取得
   results.push(["Positions", syncPositions_()]);
   results.push(["ShiftBudgets", syncShiftBudgets_()]);
+
+  // 旧シートの AttendanceLog と同形式の日別勤怠ログを打刻から生成
+  results.push(["AttendanceLog",
+    syncAttendanceLog_(cache["users"] || [], cache["attendance"] || [])]);
 
   writeStatus_(startedAt, results);
   Logger.log("Sync done: " + JSON.stringify(results));
@@ -191,6 +197,132 @@ function syncShiftBudgets_() {
     if (m > 12) { m = 1; y += 1; }
   }
   writeSheet_("ShiftBudgets", ["store", "date", "salesBudget"], rows);
+  return rows.length;
+}
+
+// ============================================================
+// AttendanceLog: 日別×従業員別の勤怠整形ログ (旧シートと同形式)
+//  - 出勤→退勤のペアを最大3回まで列に展開 (スプリットシフト対応)
+//  - 休憩は合計分数 + 最初の休憩開始/最後の休憩終了
+//  - 深夜跨ぎは出勤打刻した日の行に計上 (アプリの集計と同じ)
+//  - 退勤忘れは ClockIn のみ記録し労働時間に含めない
+//  - ActualHours = 拘束時間 − 休憩 / OvertimeHours = 8h 超過分
+//  - DailyPay   = 日給者: dailyRate / 時給者: ActualHours × hourlyRate
+// ============================================================
+var ATTLOG_TZ = "GMT+7";
+var ATTLOG_OVERTIME_AFTER_HOURS = 8; // 残業とみなす閾値 (h/日)
+
+function syncAttendanceLog_(users, punches) {
+  var userMap = {};
+  users.forEach(function (u) { userMap[String(u.id)] = u; });
+
+  // ユーザーごとに時系列へ整列
+  var byUser = {};
+  punches.forEach(function (p) {
+    var ts = new Date(p.timestamp);
+    if (isNaN(ts.getTime())) return;
+    var uid = String(p.userId);
+    (byUser[uid] = byUser[uid] || []).push({ p: p, ts: ts });
+  });
+
+  var days = {}; // "date|uid" -> rec
+  Object.keys(byUser).forEach(function (uid) {
+    var evs = byUser[uid].sort(function (a, b) { return a.ts - b.ts; });
+    var cur = null;
+    function dayRec(inTs, store) {
+      var day = Utilities.formatDate(inTs, ATTLOG_TZ, "yyyy-MM-dd");
+      var key = day + "|" + uid;
+      if (!days[key]) {
+        days[key] = { date: day, uid: uid, store: store, pairs: [],
+                      breakMs: 0, firstBreak: null, lastBreak: null };
+      }
+      return days[key];
+    }
+    evs.forEach(function (e) {
+      var type = e.p.type;
+      if (type === "clock_in") {
+        // 直前の退勤忘れがあれば ClockIn のみの記録として確定
+        if (cur) {
+          var r0 = dayRec(cur.inTs, cur.store);
+          r0.pairs.push([cur.inTs, null]);
+        }
+        var u = userMap[uid] || {};
+        cur = { inTs: e.ts, store: e.p.store || u.store || "",
+                breakMs: 0, breakStart: null, firstBreak: null, lastBreak: null };
+      } else if (type === "break_start" && cur) {
+        cur.breakStart = e.ts;
+        if (!cur.firstBreak) cur.firstBreak = e.ts;
+      } else if (type === "break_end" && cur && cur.breakStart) {
+        cur.breakMs += e.ts - cur.breakStart;
+        cur.lastBreak = e.ts;
+        cur.breakStart = null;
+      } else if (type === "clock_out" && cur) {
+        var r = dayRec(cur.inTs, cur.store);
+        r.pairs.push([cur.inTs, e.ts]);
+        r.breakMs += cur.breakMs;
+        if (cur.firstBreak && !r.firstBreak) r.firstBreak = cur.firstBreak;
+        if (cur.lastBreak) r.lastBreak = cur.lastBreak;
+        cur = null;
+      }
+    });
+    if (cur) {
+      var rz = dayRec(cur.inTs, cur.store);
+      rz.pairs.push([cur.inTs, null]);
+    }
+  });
+
+  // "u" パターン: 1=月曜 … 7=日曜 (GMT+7 固定で評価)
+  var WD = ["", "T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+  var hhmm = function (ts) {
+    return ts ? Utilities.formatDate(ts, ATTLOG_TZ, "HH:mm") : "";
+  };
+  var now = Utilities.formatDate(new Date(), ATTLOG_TZ, "yyyy-MM-dd'T'HH:mm:ss'+07:00'");
+
+  var recs = Object.keys(days).map(function (k) { return days[k]; });
+  recs.sort(function (a, b) {
+    if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+    var na = (userMap[a.uid] || {}).name || "";
+    var nb = (userMap[b.uid] || {}).name || "";
+    return na < nb ? -1 : na > nb ? 1 : 0;
+  });
+
+  var rows = recs.map(function (r) {
+    var u = userMap[r.uid] || {};
+    var grossMs = 0;
+    r.pairs.forEach(function (pr) {
+      if (pr[1]) grossMs += pr[1] - pr[0];
+    });
+    var workH = grossMs / 3600000;
+    var actualH = Math.max(0, (grossMs - r.breakMs) / 3600000);
+    var overH = Math.max(0, actualH - ATTLOG_OVERTIME_AFTER_HOURS);
+    var hourly = Number(u.hourlyRate) || 0;
+    var daily = Number(u.dailyRate) || 0;
+    var pay = daily > 0 ? daily : Math.round(actualH * hourly);
+    var salaryForm = u.salaryForm ||
+      (daily > 0 ? "Daily" : (hourly > 0 ? "Hourly wage" : ""));
+    var wd = WD[Number(Utilities.formatDate(
+      new Date(r.date + "T12:00:00+07:00"), ATTLOG_TZ, "u"))] || "";
+    var note = r.pairs.length > 3 ? ("+" + (r.pairs.length - 3) + " ca") : "";
+    var p = r.pairs;
+    return [
+      r.date, wd, r.store, r.uid, u.name || "", u.role || "", salaryForm,
+      hhmm(p[0] && p[0][0]), hhmm(p[0] && p[0][1]),
+      hhmm(p[1] && p[1][0]), hhmm(p[1] && p[1][1]),
+      hhmm(p[2] && p[2][0]), hhmm(p[2] && p[2][1]),
+      hhmm(r.firstBreak), hhmm(r.lastBreak),
+      String(Math.round(r.breakMs / 60000)),
+      workH.toFixed(2), actualH.toFixed(2), overH.toFixed(2),
+      String(hourly), String(pay), note, now,
+    ];
+  });
+
+  writeSheet_("AttendanceLog", [
+    "Date", "Weekday", "Store", "UserID", "Name", "Role", "SalaryForm",
+    "ClockIn1", "ClockOut1", "ClockIn2", "ClockOut2", "ClockIn3", "ClockOut3",
+    "BreakStart", "BreakEnd", "BreakMinutes",
+    "WorkHours", "ActualHours", "OvertimeHours",
+    "HourlyRate", "DailyPay", "Note", "UpdatedAt",
+  ], rows);
   return rows.length;
 }
 
