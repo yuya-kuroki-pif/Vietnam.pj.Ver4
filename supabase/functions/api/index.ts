@@ -1525,11 +1525,12 @@ interface BreakdownRow {
   hours: number;
 }
 
-// 月額固定項目 (交通費・駐車場代・社会保険・その他手当) の按分ルール:
-//   その月に出勤実績がある従業員のみ対象。月額 ÷ 当月の出勤日数 を 1 出勤日あたりの
-//   金額とし、集計範囲内の出勤日数分を所属店舗 (未設定なら範囲内で最も出勤した店舗) に計上する。
-//   → 月全体では月額ちょうどになり、日別・期間別に見ても整合する。退職済み等で
-//     出勤が無い月には計上されない (必要なら「その他人件費」で手入力)。
+// 月額固定項目 (交通費・駐車場代・社会保険・その他手当) の按分ルール (2026-10-07 改定):
+//   その月に出勤実績がある従業員のみ対象。月額を暦日で日割り (月額 ÷ 当月日数) し、
+//   集計範囲の日数分 (ただし本日まで) を所属店舗 (未設定なら当月に最も出勤した店舗) に計上する。
+//   → 月全体では月額ちょうど。月の途中で見ると経過日数分だけになる (出勤日按分だと
+//     月初の数日で満額が乗ってしまうため暦日按分に変更)。退職済み等で出勤が無い月には
+//     計上されない (必要なら「その他人件費」で手入力)。
 
 async function buildAttendanceBreakdown(
   year: number, month: number, dateFrom?: string, dateTo?: string,
@@ -1551,6 +1552,17 @@ async function buildAttendanceBreakdown(
   const monthTo = targetYM + "-31";
   const effFrom = addDays(scopeFrom < monthFrom ? scopeFrom : monthFrom, -2);
   const effTo = addDays(scopeTo > monthTo ? scopeTo : monthTo, 2);
+
+  // 月額固定項目の暦日按分率: 対象月 ∩ 集計範囲 ∩ 本日まで の日数 ÷ 当月日数
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const monthLast = targetYM + "-" + pad(daysInMonth);
+  const today = todayStr();
+  let calFrom = scopeFrom > monthFrom ? scopeFrom : monthFrom;
+  let calTo = scopeTo < monthLast ? scopeTo : monthLast;
+  if (calTo > today) calTo = today;
+  let calDays = 0;
+  for (let d = calFrom; d <= calTo; d = addDays(d, 1)) calDays += 1;
+  const fixedRatio = Math.min(1, Math.max(0, calDays) / daysInMonth);
 
   const userMap: Record<string, {
     name: string; role: string; homeStore: string; hourlyRate: number; dailyRate: number;
@@ -1614,7 +1626,8 @@ async function buildAttendanceBreakdown(
     const events = byUser[uid].sort((a, b) => a.ts.getTime() - b.ts.getTime());
     const isDaily = u.dailyRate > 0;
     const dayStore: Record<string, string> = {};
-    const monthDays = new Set<string>(); // 対象月内の出勤日 (固定項目の按分用)
+    const monthDays = new Set<string>(); // 対象月内の出勤日 (固定項目の対象判定用)
+    const monthStoreDays: Record<string, number> = {}; // 所属店舗未設定時の計上先決定用
 
     let clockIn: Date | null = null;
     let clockInStore = "";
@@ -1628,7 +1641,10 @@ async function buildAttendanceBreakdown(
         breakTotal = 0;
         const dstr = fmtDateVN(ev.ts);
         if (inScope(dstr) && dayStore[dstr] === undefined) dayStore[dstr] = clockInStore;
-        if (dstr.substring(0, 7) === targetYM) monthDays.add(dstr);
+        if (dstr.substring(0, 7) === targetYM && !monthDays.has(dstr)) {
+          monthDays.add(dstr);
+          monthStoreDays[clockInStore] = (monthStoreDays[clockInStore] || 0) + 1;
+        }
       } else if (ev.type === "break_start" && clockIn) {
         breakStart = ev.ts;
       } else if (ev.type === "break_end" && breakStart) {
@@ -1647,29 +1663,24 @@ async function buildAttendanceBreakdown(
       }
     }
 
-    const storeDays: Record<string, number> = {};
     Object.keys(dayStore).forEach((d) => {
       const b = bucket(uid, dayStore[d]);
       b.days += 1;
       if (isDaily) b.baseCost += u.dailyRate;
-      storeDays[dayStore[d]] = (storeDays[dayStore[d]] || 0) + 1;
     });
 
-    // 月額固定項目の按分 (ルールは BreakdownRow のコメント参照)
+    // 月額固定項目の暦日按分 (ルールは BreakdownRow のコメント参照)
     const fixedMonthly = u.transport + u.parking + u.insurance + u.allowance;
-    const scopeDays = Object.keys(dayStore).length;
-    if (fixedMonthly > 0 && monthDays.size > 0 && scopeDays > 0) {
-      // 範囲が月をまたぐ場合に月額を超えないよう 1 で頭打ち
-      const ratio = Math.min(1, scopeDays / monthDays.size);
+    if (fixedMonthly > 0 && monthDays.size > 0 && fixedRatio > 0) {
       let attrStore = u.homeStore;
       if (!attrStore) {
-        attrStore = Object.keys(storeDays).sort((a, b) => storeDays[b] - storeDays[a])[0] || "";
+        attrStore = Object.keys(monthStoreDays).sort((a, b) => monthStoreDays[b] - monthStoreDays[a])[0] || "";
       }
       const b = bucket(uid, attrStore);
-      b.transport += u.transport * ratio;
-      b.parking += u.parking * ratio;
-      b.insurance += u.insurance * ratio;
-      b.allowance += u.allowance * ratio;
+      b.transport += u.transport * fixedRatio;
+      b.parking += u.parking * fixedRatio;
+      b.insurance += u.insurance * fixedRatio;
+      b.allowance += u.allowance * fixedRatio;
     }
   });
 
