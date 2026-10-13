@@ -496,6 +496,17 @@ const I18N = {
     sgDiffRow: "Chênh lệch",
     sgLaborRateRow: "Tỷ lệ chi phí NC",
     sgSalesPerHourRow: "Doanh thu / giờ công",
+    sgResvGroupsRow: "Đặt bàn (nhóm)",
+    sgResvPersonsRow: "Đặt bàn (khách)",
+    dashResvTitle: "Đặt bàn (sổ đặt bàn)",
+    dashResvVisited: "Đã đến (nhóm / khách)",
+    dashResvBooked: "Trong đó đặt trước",
+    dashResvWalkIn: "Trong đó khách vãng lai",
+    dashResvNet: "Đặt qua web",
+    dashResvRatio: "Tỷ lệ khách có trong sổ",
+    dashResvUpcoming: "Chưa đến (đã đặt)",
+    dashResvNoshow: "Không đến / Hủy",
+    dashResvGroupsFmt: "{g} nhóm / {p} khách",
     sgPositionsBtn: "⚙ Vị trí",
     posLabel: "Vị trí",
     posNone: "— Không chọn —",
@@ -959,6 +970,17 @@ const I18N = {
     sgDiffRow: "差異",
     sgLaborRateRow: "人件費率",
     sgSalesPerHourRow: "人時売上高",
+    sgResvGroupsRow: "予約組数",
+    sgResvPersonsRow: "予約人数",
+    dashResvTitle: "予約（予約台帳）",
+    dashResvVisited: "来店（組 / 人）",
+    dashResvBooked: "うち事前予約",
+    dashResvWalkIn: "うちウォークイン",
+    dashResvNet: "ネット予約",
+    dashResvRatio: "予約台帳の客数比率",
+    dashResvUpcoming: "未来店の予約",
+    dashResvNoshow: "ノーショー / キャンセル",
+    dashResvGroupsFmt: "{g}組 / {p}名",
     sgPositionsBtn: "⚙ ポジション",
     posLabel: "ポジション",
     posNone: "— 指定なし —",
@@ -1258,6 +1280,7 @@ const sgState = {
   shifts: [], byUserDate: {},
   positions: [],   // [{id, store, name, color, modelHours, sortOrder}]
   budgets: {},     // { "yyyy-MM-dd": salesBudget }
+  resv: null,      // 予約台帳の日別集計 { "yyyy-MM-dd": {groups, persons, walkIns, upcoming} } (未連携なら null)
 };
 let sgModalCtx = { userId: "", date: "" };
 let sgLastPosition = ""; // 直近に選んだポジション (連続登録を楽にする)
@@ -1308,7 +1331,7 @@ async function loadShiftGrid() {
     const pr = await api("getPatterns");
     if (pr && pr.success) patterns = pr.patterns || [];
   }
-  const [r, posR, budR] = await Promise.all([
+  const [r, posR, budR, resvR] = await Promise.all([
     api("listShifts", {
       year: sgState.year,
       month: sgState.month,
@@ -1320,9 +1343,15 @@ async function loadShiftGrid() {
       year: sgState.year,
       month: sgState.month,
     }),
+    api("listReservationDaily", {
+      store: sgState.store,
+      year: sgState.year,
+      month: sgState.month,
+    }),
   ]);
   sgState.positions = (posR && posR.positions) || [];
   sgState.budgets = (budR && budR.budgets) || {};
+  sgState.resv = (resvR && resvR.success && resvR.linked) ? (resvR.days || {}) : null;
   sgState.shifts = (r && r.shifts) || [];
   sgState.byUserDate = {};
   sgState.shifts.forEach((s) => {
@@ -1469,6 +1498,20 @@ function renderShiftGrid() {
     text: budgetOf(i) ? fmtLabor(budgetOf(i)) : "—",
     onClick: () => editSgBudget(dateStrs[i]),
   }), budgetTotal ? fmtLabor(budgetTotal) : "—", "sg-budget-row");
+
+  // 1b. 予約台帳の予約組数・人数 (キャンセル・ノーショー除く。店舗が台帳と連携しているときだけ)
+  if (sgState.resv) {
+    const rv = (i) => sgState.resv[dateStrs[i]] || null;
+    let totG = 0, totP = 0;
+    dateStrs.forEach((ds) => { const x = sgState.resv[ds]; if (x) { totG += x.groups; totP += x.persons; } });
+    addSumRow(t("sgResvGroupsRow"), (i) => ({
+      text: rv(i) ? String(rv(i).groups) : "",
+      cls: rv(i) && rv(i).upcoming ? "sg-resv-upcoming" : "",
+    }), String(totG), "sg-resv-row");
+    addSumRow(t("sgResvPersonsRow"), (i) => ({
+      text: rv(i) ? String(rv(i).persons) : "",
+    }), String(totP), "sg-resv-row");
+  }
 
   // 2. モデルシフト (予定h / モデルh)
   addSumRow(t("sgModelRow"), (i) => ({
@@ -5185,6 +5228,46 @@ function renderDashboard(d) {
     </div>
   `;
   root.appendChild(profitCard);
+
+  // Reservation card (予約台帳が店舗に紐付いているときだけ)
+  const rv = d.reservations;
+  if (rv && rv.linked) {
+    const gp = (g, p) => t("dashResvGroupsFmt").replace("{g}", g || 0).replace("{p}", p || 0);
+    const resvCard = document.createElement("div");
+    resvCard.className = "dash-card";
+    resvCard.innerHTML = `
+      <div class="dash-card-header">
+        <div>
+          <div class="dash-card-label">${t("dashResvTitle")}</div>
+        </div>
+        <div class="dash-card-value-wrap">
+          <div class="dash-card-value">${pctValueFmt((rv.ratioToCustomers || 0) * 100)}</div>
+          <span class="dash-card-target">${t("dashResvRatio")}</span>
+        </div>
+      </div>
+      <div class="dash-row">
+        <span class="dash-row-label">${t("dashResvVisited")}</span>
+        <span class="dash-row-value">${gp(rv.visitedGroups, rv.visitedPersons)}</span>
+      </div>
+      <div class="dash-row">
+        <span class="dash-row-label">${t("dashResvBooked")}</span>
+        <span class="dash-row-value">${gp(rv.bookedGroups, rv.bookedPersons)}${rv.netGroups ? ` <span class="dash-row-target-label">(${t("dashResvNet")} ${rv.netGroups})</span>` : ""}</span>
+      </div>
+      <div class="dash-row">
+        <span class="dash-row-label">${t("dashResvWalkIn")}</span>
+        <span class="dash-row-value">${gp(rv.walkInGroups, rv.walkInPersons)}</span>
+      </div>
+      <div class="dash-row">
+        <span class="dash-row-label">${t("dashResvUpcoming")}</span>
+        <span class="dash-row-value">${gp(rv.upcomingGroups, rv.upcomingPersons)}</span>
+      </div>
+      <div class="dash-row">
+        <span class="dash-row-label">${t("dashResvNoshow")}</span>
+        <span class="dash-row-value">${rv.noshowGroups || 0} / ${rv.cancelledGroups || 0}</span>
+      </div>
+    `;
+    root.appendChild(resvCard);
+  }
 }
 
 function renderDailySalesList(items) {

@@ -77,6 +77,24 @@
   ミラーは読み取り専用。シートを編集しても Supabase には反映されない。
 
 ----------------------------------------------------------
+4b. 予約台帳 (yoyaku-daicho) の DB 統合 (2026-10-13)
+----------------------------------------------------------
+  - 予約台帳 (GitHub: yuya-kuroki-pif/yoyaku-daicho、Firebase Hosting) の DB を本プロジェクトに統合。
+    旧プロジェクト rlzltklfclzakcmpctga は読み取り専用のバックアップ。
+  - テーブル (すべて yoyaku_ 接頭辞): yoyaku_stores / yoyaku_reservations / yoyaku_events /
+    yoyaku_store_members / yoyaku_ai_usage / yoyaku_google_cache / yoyaku_google_usage。
+    RPC 関数 booking_* / booking_track / ai_join_store は台帳アプリがそのまま呼ぶ。
+    定義は supabase/migrations/20261013_yoyaku_daicho_merge.sql。
+  - アクセス制御: 台帳スタッフは Supabase Auth でログイン (authenticated ロールのポリシー)。
+    勤怠側テーブルにはポリシーが無いので、台帳のログインからは読めない (従来どおり Edge Function "api" 経由のみ)。
+  - 店舗の対応: stores."reservationStoreId" (ROBATA NARU=st1 / WHITE TABLE=smub0g063 / HIGHBALL MAJOR=smudq9ghq)。
+    台帳側の店舗名 (Robata Naru-Charcoal Grill 等) は予約サイトに出るのでそのまま。
+  - Edge Function: ai (verify_jwt=true) / places (verify_jwt=false) を本プロジェクトにも配置。
+    Secret ANTHROPIC_API_KEY / GOOGLE_PLACES_API_KEY はダッシュボード → Edge Functions → Secrets で設定。
+  - 勤怠側の表示: ダッシュボード「予約（予約台帳）」カード、シフト表の「予約組数 / 予約人数」行
+    (API: getDashboard.reservations / listReservationDaily)。
+
+----------------------------------------------------------
 5. 運用メモ
 ----------------------------------------------------------
   * タイムゾーンは Asia/Ho_Chi_Minh (UTC+7) で記録。

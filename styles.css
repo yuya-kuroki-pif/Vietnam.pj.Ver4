@@ -3548,3 +3548,7 @@ input[type="time"]::-webkit-date-and-time-value {
   border: 1px solid var(--border);
   box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
 }
+
+/* シフト表: 予約台帳の予約組数・人数行 */
+.sg-sum-row.sg-resv-row td { background: #eef6ff; }
+.sg-sum-row.sg-resv-row td.sg-resv-upcoming { color: #1d4ed8; font-weight: 600; }

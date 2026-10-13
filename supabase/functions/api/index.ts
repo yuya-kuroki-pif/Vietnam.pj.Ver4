@@ -750,6 +750,74 @@ async function deletePosition(body: Row) {
   return await deleteById("positions", str(body.id));
 }
 
+// ----------------------------------------------------------------
+// 予約台帳 (yoyaku_reservations) の集計
+// 2026-10-13: 予約台帳 (yoyaku-daicho) の DB を本プロジェクトに統合。stores."reservationStoreId" で
+// 勤怠側の店舗名 → 台帳の store_id を引く。ステータス: reserved / seated / finished / cancelled / noshow。
+// 来店 = seated + finished。人数 = adults + children。walkIn=true はウォークイン、channel が入っていればネット予約。
+// ----------------------------------------------------------------
+async function _reservationStoreId(storeName: string): Promise<string> {
+  if (!storeName) return "";
+  const rows = await fetchAll("stores", (q) => q.eq("name", storeName));
+  return rows.length ? str(rows[0].reservationStoreId).trim() : "";
+}
+
+interface ResvAgg {
+  visitedGroups: number; visitedPersons: number;   // 来店 (seated + finished)
+  walkInGroups: number; walkInPersons: number;     // うちウォークイン
+  bookedGroups: number; bookedPersons: number;     // うち事前予約 (walkIn=false)
+  netGroups: number;                               // うちネット予約 (channel あり)
+  upcomingGroups: number; upcomingPersons: number; // 未来店 (reserved)
+  noshowGroups: number; cancelledGroups: number;
+}
+function _emptyResv(): ResvAgg {
+  return { visitedGroups: 0, visitedPersons: 0, walkInGroups: 0, walkInPersons: 0, bookedGroups: 0, bookedPersons: 0,
+    netGroups: 0, upcomingGroups: 0, upcomingPersons: 0, noshowGroups: 0, cancelledGroups: 0 };
+}
+function _addResv(a: ResvAgg, r: Row) {
+  const d = (r.data || {}) as Row;
+  const persons = _toNum(d.adults) + _toNum(d.children);
+  const status = str(r.status);
+  const walkIn = d.walkIn === true;
+  if (status === "seated" || status === "finished") {
+    a.visitedGroups += 1; a.visitedPersons += persons;
+    if (walkIn) { a.walkInGroups += 1; a.walkInPersons += persons; }
+    else { a.bookedGroups += 1; a.bookedPersons += persons; if (str(d.channel)) a.netGroups += 1; }
+  } else if (status === "reserved") {
+    a.upcomingGroups += 1; a.upcomingPersons += persons;
+  } else if (status === "noshow") {
+    a.noshowGroups += 1;
+  } else if (status === "cancelled") {
+    a.cancelledGroups += 1;
+  }
+}
+
+// 日別の予約状況 (シフト表のヘッダー用)。cancelled / noshow は除外。
+async function listReservationDaily(body: Row) {
+  const store = str(body.store);
+  const year = parseInt(str(body.year), 10);
+  const month = parseInt(str(body.month), 10);
+  if (!year || !month) return { success: false, message: "Missing year/month" };
+  const resStoreId = await _reservationStoreId(store);
+  if (!resStoreId) return { success: true, linked: false, days: {} };
+  const prefix = ymStr(year, month);
+  const rows = await fetchAll("yoyaku_reservations", (q) =>
+    q.eq("store_id", resStoreId).gte("date", prefix + "-01").lte("date", prefix + "-31"));
+  const days: Record<string, { groups: number; persons: number; walkIns: number; upcoming: number }> = {};
+  rows.forEach((r) => {
+    const status = str(r.status);
+    if (status === "cancelled" || status === "noshow") return;
+    const d = (r.data || {}) as Row;
+    const key = str(r.date);
+    const x = days[key] || (days[key] = { groups: 0, persons: 0, walkIns: 0, upcoming: 0 });
+    x.groups += 1;
+    x.persons += _toNum(d.adults) + _toNum(d.children);
+    if (d.walkIn === true) x.walkIns += 1;
+    if (status === "reserved") x.upcoming += 1;
+  });
+  return { success: true, linked: true, days };
+}
+
 async function listShiftBudgets(body: Row) {
   const store = str(body.store);
   const year = parseInt(str(body.year), 10);
@@ -1998,6 +2066,18 @@ async function getDashboard(body: Row) {
     }
   }
 
+  // 予約台帳 (統合済み DB) の集計。店舗が台帳と紐付いていなければ null
+  let reservations: (ResvAgg & { linked: boolean; ratioToCustomers: number }) | null = null;
+  {
+    const resStoreId = await _reservationStoreId(store);
+    if (resStoreId) {
+      const agg = _emptyResv();
+      (await fetchAll("yoyaku_reservations", (q) =>
+        q.eq("store_id", resStoreId).gte("date", dateFrom).lte("date", dateTo))).forEach((r) => _addResv(agg, r));
+      reservations = { ...agg, linked: true, ratioToCustomers: customers > 0 ? agg.visitedPersons / customers : 0 };
+    }
+  }
+
   const attLabor = await calcAttendanceLaborCost(store, year, month, dateFrom, dateTo);
   const daysInMonthForLabor = daysInMonth;
   const laborPart = (totalRangeDays > 0 && daysInMonthForLabor > 0)
@@ -2071,6 +2151,7 @@ async function getDashboard(body: Row) {
       drinkCostRatio: drinkCostRatioTarget,
       laborCostRatio: laborCostRatioTarget,
     },
+    reservations,
     labor: {
       cost: totalLaborCost,
       ratio: totalSales > 0 ? totalLaborCost / totalSales : 0,
@@ -2459,6 +2540,7 @@ const HANDLERS: Record<string, (body: Row) => Promise<unknown>> = {
   deletePosition,
   listShiftBudgets,
   upsertShiftBudget,
+  listReservationDaily,
   listPurchases,
   registerPurchase,
   registerPurchaseBatch,
