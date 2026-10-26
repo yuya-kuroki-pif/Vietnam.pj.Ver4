@@ -95,6 +95,17 @@
     (API: getDashboard.reservations / listReservationDaily)。
 
 ----------------------------------------------------------
+4c. セキュリティ監視 (security-watch, 2026-10-26)
+----------------------------------------------------------
+  - .github/workflows/security-watch.yml が毎日 07:30 JST に security/security_watch.py を実行。
+    CVEProject/cvelistV5 (deltaLog.json) と OSV.dev を security/inventory.json の監視対象
+    (supabase-js / Supabase 各サービス / PostgreSQL / Deno / Firebase / GitHub) と照合し、
+    該当があれば GitHub Issue (ラベル security) を起票してメール通知する。
+  - メール通知はリポジトリ Secrets (SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS / MAIL_FROM / MAIL_TO)
+    を設定すると有効。詳細と運用ルールは security/README.md。
+  - 結果は security/log/YYYY-MM.md と security/state.json に自動コミットされる。
+
+----------------------------------------------------------
 5. 運用メモ
 ----------------------------------------------------------
   * タイムゾーンは Asia/Ho_Chi_Minh (UTC+7) で記録。

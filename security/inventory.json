@@ -1,0 +1,57 @@
+{
+  "_comment": "セキュリティ監視の依存台帳。security_watch.py が毎日読む。vendor/product は CVE レコードの affected.vendor / affected.product / packageName / CPE に対する正規表現 (大文字小文字無視、部分一致)。text は説明文に対するキーワード (弱いシグナル)。minScore 以上の CVSS か KEV (悪用確認済み) で『要対応』、それ以外は『情報』。",
+  "defaults": { "minScore": 7.0 },
+  "items": [
+    {
+      "id": "supabase-js",
+      "label": "supabase-js (Edge Function api/ai/places と予約台帳の同梱バンドル)",
+      "vendor": ["^supabase$"],
+      "product": ["supabase-js", "@supabase/supabase-js", "^supabase_js$"],
+      "osv": [{ "ecosystem": "npm", "name": "@supabase/supabase-js" }],
+      "inUse": "Edge Function: npm:@supabase/supabase-js@2 (最新 2.x を解決)。予約台帳: daicho/vendor/supabase.js, booking/vendor/supabase.js",
+      "action": "Edge Function は再デプロイで最新 2.x に更新される。予約台帳の vendor/supabase.js は修正版に差し替えて Firebase に配信する。"
+    },
+    {
+      "id": "supabase-platform",
+      "label": "Supabase プラットフォーム (PostgREST / Auth(GoTrue) / Realtime / Storage / Supavisor / Edge Runtime)",
+      "vendor": ["^supabase$"],
+      "product": ["postgrest", "gotrue", "^auth$", "supabase-auth", "realtime", "storage-api", "supavisor", "edge-runtime", "^supabase$", "postgres-meta", "studio"],
+      "text": ["\\bsupabase\\b"],
+      "inUse": "プロジェクト vietnam-kintai (yczwdkkuaitlbvtskmsf, 東京)。旧 予約台帳プロジェクト rlzltklfclzakcmpctga はバックアップのみ",
+      "action": "Supabase ダッシュボード → Project Settings → Infrastructure でサービスのバージョンとパッチ適用状況を確認。必要なら Supabase の通知に従って再起動/アップグレード。"
+    },
+    {
+      "id": "postgresql",
+      "label": "PostgreSQL",
+      "vendor": ["^postgresql$", "^the postgresql global development group$"],
+      "product": ["^postgresql$", "^postgres$"],
+      "inUse": "PostgreSQL 17.6 (Supabase 管理)。拡張: pgcrypto 1.3, uuid-ossp 1.1, pg_stat_statements 1.11, supabase_vault 0.3.1",
+      "action": "Supabase のメンテナンス通知で対象バージョンか確認し、Infrastructure 画面から Postgres のアップグレードを実施。DB に直接接続するものは無いので RLS と Edge Function 経由の経路を確認。"
+    },
+    {
+      "id": "deno",
+      "label": "Deno ランタイム (Edge Function)",
+      "vendor": ["^deno$", "^denoland$", "deno land"],
+      "product": ["^deno$", "^deno_std$", "^std$"],
+      "inUse": "Supabase Edge Runtime 上の Deno (バージョンは Supabase が管理)",
+      "action": "Supabase 側で更新される。Edge Function は外部 URL を fetch するだけなので、影響は限定的。status.supabase.com を確認。"
+    },
+    {
+      "id": "firebase-hosting",
+      "label": "Firebase Hosting / firebase-tools (予約台帳の配信)",
+      "vendor": ["^google$", "^firebase$"],
+      "product": ["^firebase$", "firebase-tools", "firebase hosting", "firebase-js-sdk"],
+      "osv": [{ "ecosystem": "npm", "name": "firebase-tools" }],
+      "inUse": "yoyaku-daicho の GitHub Actions が firebase-tools 最新版でデプロイ",
+      "action": "firebase-tools はワークフロー実行時に最新版を取得するため通常は自動更新。Hosting 側の問題は Google の対応待ち。"
+    },
+    {
+      "id": "github-pages",
+      "label": "GitHub Pages / GitHub Actions (勤怠システムの配信)",
+      "vendor": ["^github$"],
+      "product": ["github pages", "github actions", "^actions/checkout$", "^actions/setup-python$"],
+      "inUse": "yuya-kuroki-pif.github.io/Vietnam.pj.Ver4 (静的配信)",
+      "action": "GitHub 側で対応。Actions の脆弱性は使用アクションのバージョンを上げる。"
+    }
+  ]
+}

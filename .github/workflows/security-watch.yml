@@ -1,0 +1,67 @@
+name: security-watch
+
+# CVEProject/cvelistV5 と OSV.dev を毎日確認し、依存台帳 (security/inventory.json) に該当する
+# 脆弱性があれば GitHub Issue を起票してメール通知する。詳細は security/README.md。
+on:
+  schedule:
+    - cron: "30 22 * * *"   # 毎日 07:30 JST
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "初回/手動実行時に遡る日数 (state.json が無いときのみ有効)"
+        required: false
+        default: "7"
+      dry_run:
+        description: "true なら Issue/メール/記録を行わず結果だけ表示"
+        required: false
+        default: "false"
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: security-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run security watch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          LOOKBACK_DAYS: ${{ github.event.inputs.days || '7' }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            python security/security_watch.py --dry-run
+          else
+            python security/security_watch.py
+          fi
+
+      - name: Commit state and log
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: |
+          git config user.name "security-watch[bot]"
+          git config user.email "security-watch@users.noreply.github.com"
+          git add security/state.json security/log || true
+          if git diff --cached --quiet; then
+            echo "no changes"
+          else
+            git commit -m "security-watch: $(date -u +%Y-%m-%d) の確認結果を記録 [skip ci]"
+            git push
+          fi
